@@ -172,6 +172,37 @@ bool smoke_panel_fill(uint16_t x, uint16_t y, uint16_t width, uint16_t height, u
     return ok;
 }
 
+bool smoke_panel_blit565(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
+                         const uint8_t *source)
+{
+    if (source == NULL || width == 0u || height == 0u ||
+        x + width > PANEL_WIDTH || y + height > PANEL_HEIGHT)
+        return false;
+    const uint16_t row = y + LCD_ROW_OFFSET;
+    if (!address(LCD_COLUMN_ADDRESS, x, x + width - 1u) ||
+        !address(LCD_ROW_ADDRESS, row, row + height - 1u))
+        return false;
+
+    const uint8_t opcode = LCD_MEMORY_WRITE;
+    HAL_GPIO_WritePin(GPIOD, LCD_DC, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOE, LCD_CS, GPIO_PIN_RESET);
+    bool ok = spi_write(&opcode, 1u);
+    HAL_GPIO_WritePin(GPIOD, LCD_DC, GPIO_PIN_SET);
+    /* Rows are row-major RGB565 with the high byte first, which is the order
+     * the ST7789V2 expects after the memory write command. */
+    uint32_t remaining = (uint32_t)width * height * 2u;
+    while (ok && remaining != 0u) {
+        const uint16_t batch = remaining < (uint32_t)(2u * PIXEL_BATCH)
+                                   ? (uint16_t)remaining
+                                   : (uint16_t)(2u * PIXEL_BATCH);
+        ok = spi_write(source, batch);
+        source += batch;
+        remaining -= batch;
+    }
+    HAL_GPIO_WritePin(GPIOE, LCD_CS, GPIO_PIN_SET);
+    return ok;
+}
+
 bool smoke_key_adc_init(void)
 {
     /* The reference PLL2 settings produce 96 MHz at PLL2P. */

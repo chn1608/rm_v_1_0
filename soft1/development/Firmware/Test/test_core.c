@@ -141,7 +141,18 @@ static void key_test(void)
     for (unsigned i = 0; i < sizeof(samples) / sizeof(samples[0]); ++i) {
         assert(key_classify_mv(samples[i]) == (Key)i);
     }
-    assert(key_classify_mv(330u) == KEY_UNKNOWN && key_classify_mv(4000u) == KEY_UNKNOWN);
+    /* Neighbouring rungs are 660 mV apart and every reading belongs to the
+     * closest one, so a few percent of ADC gain error cannot drop a key into an
+     * unassigned gap. The old fixed +/-180 mV windows made 1.98 V and 2.64 V
+     * unreadable once VDDA or the divider drifted (bench: up/down dead). */
+    for (unsigned percent = 90u; percent <= 110u; percent += 10u) {
+        for (unsigned i = 1u; i < sizeof(samples) / sizeof(samples[0]); ++i) {
+            const uint16_t readback = (uint16_t)((samples[i] * percent + 50u) / 100u);
+            assert(key_classify_mv(readback) == (Key)i);
+        }
+    }
+    assert(key_classify_mv(3300u) == KEY_NONE);
+    assert(key_classify_mv(4000u) == KEY_UNKNOWN);
     KeyFilter f = {0};
     Key event = KEY_NONE;
     assert(!key_update(&f, KEY_LEFT, &event));

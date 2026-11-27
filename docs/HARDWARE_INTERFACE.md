@@ -1,6 +1,6 @@
 # V1.2 接线说明
 
-当前只有 MC02、LCD、ST-LINK/V2 和可选 USB 转串口时，使用 [独立台架接线图](lcd-smoke-wiring.pdf) 和 [Keil5 验证指南](LCD_SMOKE_GUIDE.md)。主板经自身 USB-C 供电，USB 转串口供电脚全部悬空。
+当前 MC02、LCD 和 ST-LINK/V2 组合使用 [独立台架接线图](lcd-smoke-wiring.pdf) 和 [Keil5 验证指南](LCD_SMOKE_GUIDE.md)。主板经自身 USB-C 供电，P10 留空。
 
 四页 [接线图](wiring-v1.2.pdf) 依次为整车配电与急停、PC／BLE／SWD、LCD／五向按键、双轮与反馈。图纸为候选审查件，所有针号按对应原理图标注。插拔前切掉电池、USB 和外置供电。针脚从接头的 Pin 1 标记判定，公母头视角可能镜像。只记录证据已确认的 PCB 网络，实物线束仍由硬件负责人核验。
 

@@ -14,7 +14,7 @@ COMMON = [FW / part for part in (
     "Control/safety.c", "Service/protocol.c", "Debug/service.c", "APP/keys.c"
 )]
 MOCK = FW / "Device/Mock/mock.c"
-INCLUDES = [FW / part for part in ("Config", "Device", "Control", "Service", "Debug", "APP", "BSP", "Device/Mock")]
+INCLUDES = [FW / part for part in ("Config", "Device", "Control", "Service", "Debug", "APP", "BSP", "Device/Mock", "HMI", "LcdSmoke")]
 PROFILES = {"SIM": 1, "BENCH": 2, "RUN": 3}
 
 
@@ -33,6 +33,16 @@ def host(profile, out):
         run([os.getenv("RM_HOST_CC", "gcc"), "-std=c99", "-Wall", "-Wextra", "-Werror",
              "-pedantic", "-O2", "-DRM_PROFILE=1", *("-I" + str(p) for p in INCLUDES),
              *COMMON, MOCK, FW / "Test/sim_link.c", "-o", out / "sim_link.exe"])
+
+
+def host_hmi():
+    out = ROOT / "build/host/HMI"
+    out.mkdir(parents=True, exist_ok=True)
+    exe = out / "test_hmi.exe"
+    run([os.getenv("RM_HOST_CC", "gcc"), "-std=c99", "-Wall", "-Wextra", "-Werror",
+         "-pedantic", "-O2", *("-I" + str(p) for p in INCLUDES),
+         FW / "HMI/hmi.c", FW / "Test/test_hmi.c", "-o", exe])
+    run([exe])
 
 
 def arm(profile, out, arm_bin):
@@ -58,6 +68,10 @@ def arm(profile, out, arm_bin):
              rtos / "tasks.c", rtos / "list.c", rtos / "queue.c", port / "port.c"]
     if profile == "SIM":
         files.append(MOCK)
+    else:
+        files.extend((FW / "APP/lcd_runtime.c", FW / "LcdSmoke/panel.c", FW / "HMI/hmi.c"))
+        files.extend(hal / f"Src/stm32h7xx_hal{name}.c"
+                     for name in ("_adc", "_adc_ex", "_spi", "_spi_ex"))
     cpu = "Cortex-M7.fp.dp"
     startup = out / "startup.o"
     run([arm_bin / "armasm.exe", "--cpu", cpu, VENDOR / "MDK-ARM/startup_stm32h723xx.s", "-o", startup])
@@ -89,6 +103,8 @@ def main():
             host(profile, out)
         else:
             arm(profile, out, args.arm_bin)
+    if args.target == "host":
+        host_hmi()
 
 
 if __name__ == "__main__":

@@ -4,6 +4,9 @@
 #include "stm32h7xx_hal.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#if RM_PROFILE != RM_SIM
+#include "lcd_runtime.h"
+#endif
 #if RM_PROFILE == RM_SIM
 #include "mock.h"
 static Mock model;
@@ -17,10 +20,41 @@ static Parser pc_parser;
 static Transport pc;
 static Devices devices;
 static uint32_t dropped_tx, link_errors;
+#if RM_PROFILE != RM_SIM
+static HmiSnapshot lcd_snapshot;
+static bool debug_uart_ready, pc_frame_seen;
+static uint32_t last_pc_frame_ms;
+
+static void read_lcd_snapshot(HmiSnapshot *out)
+{
+    taskENTER_CRITICAL();
+    *out = lcd_snapshot;
+    taskEXIT_CRITICAL();
+}
+
+static void publish_lcd_snapshot(const Snapshot *snapshot)
+{
+    const bool has_voltage = snapshot->bus_mv.valid && snapshot->bus_mv.source == DATA_MEASURED;
+    const bool recent_pc = pc_frame_seen && snapshot->now_ms - last_pc_frame_ms < 1000u;
+    taskENTER_CRITICAL();
+    lcd_snapshot.fields[HMI_BUS_MV] = (HmiValue){snapshot->bus_mv.value, has_voltage};
+    lcd_snapshot.fields[HMI_SYSTEM_STATE] = (HmiValue){(int32_t)safety.state, true};
+    lcd_snapshot.fields[HMI_CONTROL_MODE] = (HmiValue){(int32_t)safety.owner, true};
+    lcd_snapshot.fields[HMI_POWER_COMMAND] = (HmiValue){safety.motion_permitted, true};
+    lcd_snapshot.fields[HMI_FAULT_CODE] = (HmiValue){(int32_t)safety.faults, true};
+    lcd_snapshot.fields[HMI_PC_CONNECTED] = (HmiValue){1, recent_pc};
+    lcd_snapshot.fields[HMI_VALID_FRAMES] = (HmiValue){(int32_t)(pc_parser.good & 0x7fffffffu), debug_uart_ready};
+    taskEXIT_CRITICAL();
+}
+#endif
 
 static void reply_to_pc(void *context, const Frame *req)
 {
     Snapshot *snap = context;
+#if RM_PROFILE != RM_SIM
+    pc_frame_seen = true;
+    last_pc_frame_ms = snap->now_ms;
+#endif
     Frame response;
     uint8_t wire[RM_FRAME_MAX];
     debug_handle(&params, &safety, snap, OWNER_PC, false, req, &response);
@@ -56,6 +90,9 @@ static void cycle(void *unused)
                 protocol_feed(&pc_parser, received[i], now, reply_to_pc, &snap);
             }
         }
+#if RM_PROFILE != RM_SIM
+        publish_lcd_snapshot(&snap);
+#endif
         vTaskDelayUntil(&tick, pdMS_TO_TICKS(RM_CONTROL_PERIOD_MS));
     }
 }
@@ -84,6 +121,9 @@ int main(void)
     board_clock_init();
     HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
     const bool uart_ready = board_debug_init(&pc);
+#if RM_PROFILE != RM_SIM
+    debug_uart_ready = uart_ready;
+#endif
 #if RM_PROFILE == RM_SIM
     devices = mock_devices(&model);
 #else
@@ -96,6 +136,9 @@ int main(void)
     if (xTaskCreateStatic(cycle, "safety-diag", 384u, NULL, 3u, app_stack, &app_task) == NULL) {
         board_fatal();
     }
+#if RM_PROFILE != RM_SIM
+    (void)lcd_runtime_start(read_lcd_snapshot);
+#endif
     vTaskStartScheduler();
     board_fatal();
     return 1;

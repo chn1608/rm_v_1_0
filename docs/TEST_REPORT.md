@@ -32,7 +32,7 @@ Flash 1 MiB，DTCM 128 KiB。本次最高约为 Flash 1.76%、DTCM 3.70%。IRQ�
 - 未执行硬急停/假负载、带载、温升、编码器、底盘速度闭环、整车与赛事验收。
 - 未执行 30 分钟实时压力、看门狗和实物调度测量。按硬件待确认清单完成对应试验后逐项追加日志、板号、条件与证据。
 
-## LCD 与 SWD 技术验证构建
+## 上一版 LCD 色块台架验证构建
 
 - Keil µVision 5.24a 使用 Arm Compiler 5.06u5（build 528），通过 `UV4.exe -b <MC02_LCD_Smoke.uvprojx> -t LCD_SMOKE -o <keil-build.log>` 从项目入口构建并链接 30 个编译／汇编单元。退出码 0，0 错误、0 警告。
 - 构建目录 `build/keil/LCD_SMOKE/` 含 AXF、HEX、MAP 和 `keil-build.log`。ROM 38,240 字节，DTCM RW/ZI 5,440 字节。映射保留 `lcd_smoke` 调试结构。编译不依赖 STM32H7 DFP。本机 Flash 下载算法仍待通过 DFP 提供并核对。

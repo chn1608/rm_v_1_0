@@ -6,6 +6,7 @@
 |---|---:|---|---|
 | safety-diag | 3 | 5 ms | 状态机、参数、PC 解析器、状态组装，先安全检查后服务串口，每轮最多 64 字节 |
 | UART1 IRQ | NVIC 7 | 异步 | RX 入 256 字节环和 HAL TX，遇错误清流，缓冲拥塞可观测 |
+| lcd-ui | 1 | 每轮结束后至少 20 ms | 台架和 BENCH/RUN 的独占 SPI1/ADC1 显示任务。每轮最多传输一个渲染带，启动首帧完成后开背光。任务栈 512 words。 |
 | Idle | 0 | 调度空闲 | 128 words |
 | TIM6 ISR | NVIC 15 | 1 ms | HAL tick，独立于 FreeRTOS SysTick |
 

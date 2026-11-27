@@ -13,7 +13,7 @@ class BenchDrawing(Drawing):
     def footer(self, source):
         self.line(LEFT, 550, RIGHT, 550, EDGE)
         self.text(LEFT, 572, source, 9, MUTED)
-        self.text(RIGHT, 572, f"{self.page} / 3  ·  2026-11-27", 9, MUTED, "right")
+        self.text(RIGHT, 572, f"{self.page} / 2  ·  2026-11-27", 9, MUTED, "right")
         self.pdf.showPage()
 
     def swd(self):
@@ -36,9 +36,10 @@ class BenchDrawing(Drawing):
         ], 21)
         self.text(LEFT, 392, "原装盒装版用 CN3 的 SWD 信号。CN3.19 VDD 输出悬空。P1 无 NRST，调试选 SW，SWO 留空。", 11)
         self.text(LEFT, 412, "小棒版按已核实的 GND、SWCLK、SWDIO 丝印接。3.3 V／5 V 输出悬空。只有明确标为参考输入的端子才接 P1.1。", 11)
-        self.note(442, "首次通电", [
-            "USB 全部拔掉后压接线束。用导通档核 P1.2 地，确认 Pin 1 和 LCD 排线方向。先接主板 USB-C，再接探头 USB。",
-            "XT30 VIN、两组 OUT、PWM、外接 5 V 均留空。若板端 3.3 V 不稳或点亮后反复复位，先断电检查供电和排线。"
+        self.note(432, "现有台架接线", [
+            "若核心板供电稳定且已能显示官方测试画面，保留已核对的 USB-C 供电和 LCD 配套连接。",
+            "改接 SWD 前拔掉两条 USB。核对 P1.2 地和 Pin 1，随后先给主板上电，再接探头 USB。",
+            "P10、XT30 VIN、两组 OUT、PWM 和外接 5 V 留空。项目界面在下载验证通过并复位后显示。"
         ])
         self.footer("依据  达妙 MC02 V1.0 主板图 1–3 页及板视图，ST UM1075 Rev 10 表 4")
 
@@ -66,28 +67,6 @@ class BenchDrawing(Drawing):
         self.footer("依据  达妙 MC02 手册第 14 节、主板原理图 5 页、管脚标注图、DM_TFT-V1.1")
 
 
-    def serial(self):
-        self.header("USB 转串口诊断接线", "可选连接。USART1 用 3.3 V TTL、115200 bit/s、8N1、无流控。")
-        self.node(LEFT, 161, 195, "电脑 USB 口 C", "独立连接串口模块")
-        self.node(318, 161, 217, "USB 转串口模块", "确认 TXD 为 3.3 V TTL")
-        self.arrow(237, 161, 318, BLUE)
-        self.text(555, 164, "MC02 继续经自己的 USB-C 供电。", 11, MUTED)
-        self.cable(210, "MC02 P10  ·  USART1", "USB 转串口模块  ·  TTL 端", [
-            ("P10.1  PA9 / TX", "RXD", "signal", "out"),
-            ("P10.2  PA10 / RX", "TXD", "signal", "in"),
-            ("P10.3  GND", "GND", "ground", "tie"),
-        ], 26)
-        self.text(LEFT, 348, "USB 转串口模块的 3.3 V、5 V、VCC 供电脚全部留空。P10 只有 TX、RX、GND 三个触点。", 11)
-        self.text(LEFT, 370, "只验证接收时可以先接 P10.1 → RXD 和 P10.3 → GND。确认适配器 TXD 电平后再接 P10.2。", 11)
-        self.note(407, "针序和电平", [
-            "主板图为 1 TX、2 RX、3 GND。手册文字表为 1 GND、2 TX、3 RX。先断电核对 Pin 1、地和信号。",
-            "5 V TTL、RS-232、RS-485 的信号不可直接接 P10。选择模块上对应 3.3 V 的 TTL 信号制式。",
-            "先给主板接 USB，再接转串口的 USB。断电时先拔转串口 USB，避免 TXD 在主板掉电时仍驱动。",
-            "串口助手选择该模块的 COM 口。观察启动和心跳，发送 ASCII ? 查询状态。ST-LINK/V2 仍用 SWD 调试。"
-        ])
-        self.footer("依据  达妙 MC02 手册第 8 节，主板原理图 2 页及管脚标注图")
-
-
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("output", type=Path)
@@ -98,10 +77,9 @@ def main():
     args.output.parent.mkdir(parents=True, exist_ok=True)
     diagram = BenchDrawing(args.output)
     diagram.pdf.setTitle("MC02 LCD 与 ST-LINK/V2 技术验证接线图")
-    diagram.pdf.setSubject("MC02 独立 USB 供电、SWD、TFT 与可选 USB 串口")
+    diagram.pdf.setSubject("MC02 独立 USB 供电、SWD 与配套 TFT")
     diagram.swd()
     diagram.panel()
-    diagram.serial()
     diagram.pdf.save()
 
 
