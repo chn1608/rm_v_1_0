@@ -88,8 +88,21 @@ bool board_can_init(void)
     can.Init.DataSyncJumpWidth = 1u;
     can.Init.DataTimeSeg1 = 1u;
     can.Init.DataTimeSeg2 = 1u;
+    /* Message RAM must be laid out explicitly: with zero Tx FIFO elements
+     * HAL_FDCAN_AddMessageToTxFifoQ() can never succeed, and with zero Rx FIFO
+     * elements nothing is received. */
     can.Init.StdFiltersNbr = 1u;
     can.Init.ExtFiltersNbr = 0u;
+    can.Init.RxFifo0ElmtsNbr = 8u;
+    can.Init.RxFifo0ElmtSize = FDCAN_DATA_BYTES_8;
+    can.Init.RxFifo1ElmtsNbr = 0u;
+    can.Init.RxFifo1ElmtSize = FDCAN_DATA_BYTES_8;
+    can.Init.RxBuffersNbr = 0u;
+    can.Init.RxBufferSize = FDCAN_DATA_BYTES_8;
+    can.Init.TxEventsNbr = 0u;
+    can.Init.TxBuffersNbr = 0u;
+    can.Init.TxFifoQueueElmtsNbr = 8u;
+    can.Init.TxElmtSize = FDCAN_DATA_BYTES_8;
     can.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
     if (HAL_FDCAN_Init(&can) != HAL_OK) return false;
 

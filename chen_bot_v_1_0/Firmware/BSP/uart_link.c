@@ -1,7 +1,9 @@
-﻿/* Interrupt driven UART ring buffers for the PC debug link (USART1) and the
- * ATK-BLE02 link (UART7). One byte per interrupt keeps the ISR short; the ring
- * absorbs a burst and reports overflow to the caller instead of losing bytes
- * silently.
+/* Interrupt driven UART ring buffer for the ATK-BLE02 link (UART7).
+ *
+ * The PC link is CAN-only (see BSP/can_link.c); there is no USART debug link in
+ * this firmware. One byte per interrupt keeps the ISR short, and the ring
+ * absorbs a burst while reporting overflow to the caller instead of dropping
+ * bytes silently.
  */
 #include "board.h"
 #include "board_config.h"
@@ -23,7 +25,6 @@ typedef struct {
     uint8_t byte;
 } Link;
 
-static Link pc_link;
 static Link ble_link;
 
 static bool link_start(Link *link, USART_TypeDef *instance, IRQn_Type irq, uint32_t baud)
@@ -105,18 +106,6 @@ static DeviceResult link_write(Link *link, const uint8_t *data, unsigned length)
 
 /* --------------------------------------------------------------- adapters */
 
-static DeviceResult pc_read(void *context, uint8_t *data, unsigned capacity, unsigned *used)
-{
-    (void)context;
-    return link_read(&pc_link, data, capacity, used);
-}
-
-static DeviceResult pc_write(void *context, const uint8_t *data, unsigned length)
-{
-    (void)context;
-    return link_write(&pc_link, data, length);
-}
-
 static DeviceResult ble_read(void *context, uint8_t *data, unsigned capacity, unsigned *used)
 {
     (void)context;
@@ -129,36 +118,13 @@ static DeviceResult ble_write(void *context, const uint8_t *data, unsigned lengt
     return link_write(&ble_link, data, length);
 }
 
-Transport board_pc_transport(void)
-{
-    const Transport t = {.context = NULL, .read = pc_read, .write = pc_write};
-    return t;
-}
-
 Transport board_ble_transport(void)
 {
     const Transport t = {.context = NULL, .read = ble_read, .write = ble_write};
     return t;
 }
 
-bool board_pc_ready(void) { return pc_link.ready; }
 bool board_ble_ready(void) { return ble_link.ready; }
-
-#if CHEN_FEATURE_PC_DEBUG
-static bool pc_pins(void)
-{
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_USART1_CLK_ENABLE();
-    GPIO_InitTypeDef gpio = {0};
-    gpio.Pin = GPIO_PIN_9 | GPIO_PIN_10;
-    gpio.Mode = GPIO_MODE_AF_PP;
-    gpio.Pull = GPIO_PULLUP;
-    gpio.Speed = GPIO_SPEED_FREQ_LOW;
-    gpio.Alternate = GPIO_AF7_USART1;
-    HAL_GPIO_Init(GPIOA, &gpio);
-    return true;
-}
-#endif
 
 #if CHEN_FEATURE_BLE
 static bool ble_pins(void)
@@ -187,10 +153,6 @@ static bool ble_pins(void)
 
 bool board_links_init(void)
 {
-#if CHEN_FEATURE_PC_DEBUG
-    if (!pc_pins()) return false;
-    if (!link_start(&pc_link, USART1, USART1_IRQn, CHEN_DEBUG_BAUD)) return false;
-#endif
 #if CHEN_FEATURE_BLE
     if (!ble_pins()) return false;
     if (!link_start(&ble_link, UART7, UART7_IRQn, CHEN_BLE_BAUD)) return false;
@@ -198,17 +160,14 @@ bool board_links_init(void)
     return true;
 }
 
-void USART1_IRQHandler(void) { link_irq(&pc_link); }
 void UART7_IRQHandler(void) { link_irq(&ble_link); }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *uart)
 {
-    if (uart == &pc_link.handle) link_rx_complete(&pc_link);
-    else if (uart == &ble_link.handle) link_rx_complete(&ble_link);
+    if (uart == &ble_link.handle) link_rx_complete(&ble_link);
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *uart)
 {
-    if (uart == &pc_link.handle) link_error(&pc_link);
-    else if (uart == &ble_link.handle) link_error(&ble_link);
+    if (uart == &ble_link.handle) link_error(&ble_link);
 }

@@ -62,12 +62,7 @@ int main(void)
     (void)board_pwm_init();
     const bool analog_ok = board_analog_init();
     (void)analog_ok;
-#if CHEN_FEATURE_PC_CAN
-    const bool can_ok = board_can_init();
-#else
-    const bool can_ok = false;
-#endif
-    (void)can_ok;
+    (void)board_can_init();
 
         const bool lcd_ok = smoke_panel_init();
     if (lcd_ok) smoke_panel_set_backlight(true);

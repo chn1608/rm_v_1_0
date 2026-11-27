@@ -35,9 +35,7 @@ bool board_can_ready(void);
 Transport board_can_transport(void);
 uint32_t board_can_errors(void);
 
-Transport board_pc_transport(void);
 Transport board_ble_transport(void);
-bool board_pc_ready(void);
 bool board_ble_ready(void);
 
 #endif

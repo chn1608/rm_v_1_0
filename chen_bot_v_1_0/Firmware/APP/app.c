@@ -422,13 +422,8 @@ bool app_init(const Devices *devices, bool can_arm, bool panel_ready)
                           .center_us = BOARD_SERVO_CENTER_US, .max_us = BOARD_SERVO_MAX_US};
     (void)servo_init(&app.servo, &cal, (uint16_t)app.params.value[PARAM_SERVO_SLEW_US]);
 
-#if CHEN_FEATURE_PC_CAN
     app.pc = board_can_transport();
     app.pc_ready = board_can_ready();
-#else
-    app.pc = board_pc_transport();
-    app.pc_ready = board_pc_ready();
-#endif
     app.ble = board_ble_transport();
     app.ble_ready = board_ble_ready();
     debug_init(&app.debug, &app.params, &app.safety, &app.snapshot);
@@ -438,6 +433,9 @@ bool app_init(const Devices *devices, bool can_arm, bool panel_ready)
     /* Self test passes only when the safe output state and the link that the
      * profile needs are both available. */
     safety_self_test(&app.safety, outputs_off && can_arm);
+    /* The PC link is CAN only. A failed FDCAN init is a real fault and must be
+     * visible on the LCD, not a silent degradation. */
+    if (!app.pc_ready) app.safety.faults |= FAULT_COMM;
     app.snapshot.state = app.safety.state;
     return outputs_off;
 }
