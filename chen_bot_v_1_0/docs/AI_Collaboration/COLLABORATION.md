@@ -148,3 +148,42 @@ Code=54956  RO-data=10576  RW-data=132  ZI-data=22948
 python Tools/build.py host  ->  9 组用例全部通过
 烧录：Erase Done / Programming Done / Verify OK  18:29:46
 ```
+
+## CAN 链路：官方依据与实现（2026-11-27 收尾）
+
+依据 `gitee.com/kit-miao/damiao` 两个子模块：
+`开发板/控制板/DM-MC02`（原理图）与 `模块/通信模块/USB2CANFD`（使用说明书 V1.0）。
+
+| 项 | 官方事实 | 本工程采用 |
+|---|---|---|
+| CAN1 物理接口 | P7 `XT30PW-M (2+2)`：1=VCC_OUT1，2=INGND，3=CAN1_L，4=CAN1_H | 接线图与 `docs/CAN_LINK.md` 已按此标注 |
+| MCU 引脚 | PD0=CAN1_RX，PD1=CAN1_TX（AF9） | 一致 |
+| 模块 CAN 口 | GH1.25 **2P**，仅 CAN_H/CAN_L，**无 GND** | 文档明确“必须共地” |
+| 终端电阻 | 拨码 120 Ω，出厂默认 ON | 文档给出单端/双端接法 |
+| 模块波特率 | 仲裁域 ≤1 Mbps（1M/500k/…），数据域 ≤5 Mbps | 使用经典 CAN 1 Mbps |
+| 模块固件 | 出厂固件为达妙自有协议，不能被 python-can 驱动 | 需刷 `固件/socketcan/slcan固件` 或 `gsusb免驱固件`（含 `FLASHING.md`） |
+| 指示灯 | 蓝慢闪=未连上位机，绿慢闪=已连，绿快闪=被动错误，红快闪=bus-off | 写入排查表 |
+
+### 实现与验证
+
+- MCU：`Firmware/BSP/can_link.c`，FDCAN1 经典帧 1 Mbps，滤波器精确匹配 `0x600`，
+  RX FIFO0 中断只搬 7 字节段，任务侧重组；丢段时回退到序号 0 重新对齐。
+- PC：`soft1/development/PC_Debug/can_link.py` 同样在丢段后等待序号 0，避免把半截帧
+  当成新帧头；`test_can_link.py`（6 项）+ `test_can_e2e.py`（3 项）全部通过。
+- 分段算术更正：状态帧共 **45 字节**（36 载荷 + 9 头尾），需 **7 个 CAN 帧**
+  （6×7 + 3），1 Mbps 下约 1.0 ms，占 50 ms 周期 2%。文档已同步。
+
+### 端到端自测（无硬件）
+
+`test_can_e2e.py` 用与 `snapshot_encode_status()` 相同的 36 字节布局构造状态帧，
+经 `Frame.encode()` → CAN 分段 → 重组 → `decode_status()` 解码，断言
+`left_cmd=120 / right_cmd=-80 / bus_mv=14800 / faults=0x10 / uptime_s=42` 等字段，
+另含“电池无效标志隐藏数值”“CRC 损坏被丢弃”两项负例。
+
+## 本轮验证记录
+
+```
+python -m unittest test_can_link test_can_e2e   ->  Ran 10 tests, OK
+python Tools/build.py host                      ->  9 组用例通过
+Keil -r MDK-ARM/chen_bot_v_1_0.uvprojx          ->  0 Error(s), 0 Warning(s)
+```

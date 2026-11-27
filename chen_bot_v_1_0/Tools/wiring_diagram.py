@@ -90,7 +90,7 @@ def main():
     wire(d, [(820, 210), (820, 530), (860, 530)], POWER)
 
     # ------------------------------------------------ control row
-    box(d, 60, 620, 320, 160, "达妙 USB2CANFD", ["CAN_H ↔ PD1  CAN_L ↔ PD0", "USB 接电脑  1 Mbit/s 经典帧", "两端 120Ω 终端按需"], edge=SIGNAL)
+    box(d, 60, 610, 330, 175, "达妙 USB2CANFD", ["Type-C → PC（供电+通信）", "CAN 2P: H→P7.4  L→P7.3", "120Ω 默认 ON；与主板共地"], edge=SIGNAL)
     box(d, 60, 800, 300, 130, "ST-Link/V2", ["SWDIO↔PA13  SWCLK↔PA14", "3V3 仅参考  GND"], edge=SIGNAL)
     box(d, 60, 960, 300, 140, "ATK-BLE02", ["PE7←TXD   PE8→RXD", "LINK→PD14  STA→PD15", "5 V / GND  暂定"], edge=NOTE)
 
@@ -104,6 +104,7 @@ def main():
         "ADC1: PC4 电池  PA5 按键  PA6 触点",
         "PWM: PA0 / PA2 电机  PE9 舵机",
         "GPIO: PE13 PE14 PD8 PD9 PB0 PA3 PA1",
+        "CAN1: PD0(RX) PD1(TX) → P7.3/P7.4",
     ]
     box(d, 880, 600, 520, 380, "DM-MC-Board02 主控", mcu_lines, fill=ACCENT)
 
@@ -115,9 +116,9 @@ def main():
         "10 KEY→PA5（五向键梯形电阻）",
     ], edge=SIGNAL)
 
-    wire(d, [(380, 700), (880, 700)], SIGNAL, "CAN1 H/L")
-    dot(d, 380, 700, SIGNAL)
-    dot(d, 880, 700, SIGNAL)
+    wire(d, [(390, 690), (880, 690)], SIGNAL, "CAN1 H/L")
+    dot(d, 390, 690, SIGNAL)
+    dot(d, 880, 690, SIGNAL)
     wire(d, [(360, 865), (880, 865)], SIGNAL, "SWD")
     dot(d, 360, 865, SIGNAL)
     dot(d, 880, 865, SIGNAL)
@@ -170,7 +171,7 @@ def main():
            "全部地必须共地，动力地与信号地单点汇合；CAN 总线两端 120Ω 终端，支线不超过 0.3 m。",
            font=F_SMALL, fill=NOTE)
     d.text((78, 1514),
-           "CAN：MCU→PC 0x601，PC→MCU 0x600，每帧 7 字节有效载荷；PC 端 python-can 选 slcan 或 gs_usb 固件。",
+           "CAN：P7(XT30PW-M 2+2) 1=VCC_OUT1 2=INGND 3=CAN1_L 4=CAN1_H；模块需刷 SLCAN 或 gs_usb 固件，CAN 口无 GND，必须与主板共地。",
            font=F_SMALL, fill=NOTE)
 
     OUT.mkdir(parents=True, exist_ok=True)

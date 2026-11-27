@@ -47,11 +47,15 @@ class Reassembler:
             return b""
         sequence, payload = data[0], data[1:]
         if sequence != self._expected_seq:
+            # A lost or reordered segment leaves a half frame. Drop it and wait
+            # for a segment 0 before trusting the stream again, otherwise the
+            # middle of the old frame would be parsed as a new header.
             self.resyncs += 1
             self._buffer.clear()
             self._total = 0
-            self._expected_seq = sequence
-            return b""
+            self._expected_seq = 0
+            if sequence != 0:
+                return b""
         self._expected_seq = (sequence + 1) & 0xFF
         self._buffer.extend(payload)
 

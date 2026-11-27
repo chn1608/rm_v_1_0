@@ -7,7 +7,7 @@ import unittest
 
 from can_link import CanLink, FakeBus, Reassembler, RX_ID, TX_ID, segment
 
-from protocol import Frame, STATUS, encode, decode_status
+from protocol import Frame, STATUS_REPLY, decode_status
 
 
 class SegmentTests(unittest.TestCase):
@@ -30,23 +30,23 @@ class SegmentTests(unittest.TestCase):
             segment(b"")
 
     def test_reassembly_round_trip(self):
-        payload = bytes(range(36))
+        wire = Frame(STATUS_REPLY, 5, bytes(range(36))).encode()
         reassembler = Reassembler()
         out = b""
-        for message in segment(payload):
+        for message in segment(wire):
             out += reassembler.feed(message)
-        self.assertEqual(out, payload)
+        self.assertEqual(out, wire)
 
     def test_sequence_gap_drops_partial(self):
-        payload = bytes(30)
-        frames = segment(payload)
+        wire = Frame(STATUS_REPLY, 9, bytes(range(36))).encode()
+        frames = segment(wire)
         reassembler = Reassembler()
         self.assertEqual(reassembler.feed(frames[0]), b"")
         self.assertEqual(reassembler.feed(frames[2]), b"")   # gap
         self.assertEqual(reassembler.resyncs, 1)
-        # After the gap the stream restarts cleanly.
-        out = b"".join(reassembler.feed(m) for m in segment(payload))
-        self.assertEqual(out, payload)
+        # The stream only resumes when a segment 0 shows up again.
+        out = b"".join(reassembler.feed(m) for m in segment(wire))
+        self.assertEqual(out, wire)
 
 
 class LinkTests(unittest.TestCase):
@@ -54,8 +54,8 @@ class LinkTests(unittest.TestCase):
         local, remote = FakeBus(), FakeBus()
         link = CanLink(local, timeout=0.0)
 
-        status = Frame(STATUS, 0, b"\x01\x02\x03")
-        wire = encode(status)
+        status = Frame(STATUS_REPLY, 0, b"\x01\x02\x03")
+        wire = status.encode()
         self.assertEqual(link.write(wire), len(wire))
         self.assertEqual(len(local.sent), 2)
 
