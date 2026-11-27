@@ -57,6 +57,7 @@ class DataWorker(threading.Thread):
 
                 sequence = self._sequence & 0xFFFF
                 self._sequence += 1
+                fails_before = getattr(self._link, "tx_fail", 0)
                 self._link.write(Frame(STATUS, sequence).encode())
 
                 got = False
@@ -73,7 +74,11 @@ class DataWorker(threading.Thread):
                     if got:
                         break
                 if not got:
-                    self._out.put(("warn", "本轮没有收到状态帧"))
+                    fails_now = getattr(self._link, "tx_fail", 0)
+                    if fails_now > fails_before:
+                        self._out.put(("noack", ""))
+                    else:
+                        self._out.put(("warn", "本轮没有收到状态帧"))
             except Exception as exc:                       # noqa: BLE001
                 self._out.put(("error", str(exc)))
                 return
@@ -111,6 +116,8 @@ class App(ttk.Frame):
         self.demo = demo
         self.link = None
         self.worker = None
+        self._connecting = False
+        self._noack_logged = 0.0
         self.queue: queue.Queue = queue.Queue()
         self.history: list[float] = []
         self.vars: dict[str, tk.StringVar] = {}
@@ -215,14 +222,29 @@ class App(ttk.Frame):
         if not port:
             messagebox.showwarning("提示", "请先选择串口（适配器以 USB 串行设备出现）")
             return
-        try:
-            from usb2can_link import Usb2CanLink
-            self.link = Usb2CanLink(port)
-        except Exception as exc:                           # noqa: BLE001
-            messagebox.showerror("打开串口失败", str(exc))
+        if self._connecting:
             return
+        self._connecting = True
+        self.connect_btn.configure(text="连接中…", state="disabled")
+        self.status_var.set("正在打开 %s …" % port)
+        self.status_label.configure(foreground="#7a4b00")
+
+        def open_port() -> None:
+            try:
+                from usb2can_link import Usb2CanLink
+                link = Usb2CanLink(port)           # handshake takes ~1.2 s
+            except Exception as exc:               # noqa: BLE001
+                self.queue.put(("open_failed", str(exc)))
+                return
+            self.queue.put(("opened", (port, link)))
+
+        threading.Thread(target=open_port, daemon=True).start()
+
+    def _on_opened(self, port: str, link) -> None:
+        self._connecting = False
+        self.link = link
+        self.connect_btn.configure(text="断开", state="normal")
         self._start_worker()
-        self.connect_btn.configure(text="断开")
         self.status_var.set("已连接 %s" % port)
         self.status_label.configure(foreground="#1f6f3f")
         self._log("已连接 %s" % port)
@@ -239,8 +261,10 @@ class App(ttk.Frame):
         self.worker.start()
 
     def _disconnect(self) -> None:
+        self._connecting = False
         if self.worker is not None:
             self.worker.stop()
+            self.worker.join(timeout=0.4)
             self.worker = None
         if self.link is not None:
             try:
@@ -248,7 +272,7 @@ class App(ttk.Frame):
             except Exception:                              # noqa: BLE001
                 pass
             self.link = None
-        self.connect_btn.configure(text="连接")
+        self.connect_btn.configure(text="连接", state="normal")
         self.status_var.set("未连接")
         self.status_label.configure(foreground="#b03030")
         self._log("已断开")
@@ -262,6 +286,19 @@ class App(ttk.Frame):
                     self._apply(payload)
                 elif kind == "warn":
                     self._log(payload)
+                elif kind == "noack":
+                    now = time.monotonic()
+                    if now - self._noack_logged > 2.0:
+                        self._noack_logged = now
+                        self._log("总线无应答（0x02）：检查 CAN_H/CAN_L、GND 共地与 5V 供电")
+                elif kind == "opened":
+                    self._on_opened(*payload)
+                elif kind == "open_failed":
+                    self._connecting = False
+                    self.connect_btn.configure(text="连接", state="normal")
+                    self.status_var.set("未连接")
+                    self.status_label.configure(foreground="#b03030")
+                    self._log("打开串口失败：" + str(payload))
                 else:
                     self._log("错误：" + str(payload))
                     self._disconnect()

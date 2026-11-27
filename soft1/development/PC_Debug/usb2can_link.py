@@ -120,6 +120,9 @@ class Usb2CanLink:
         self._pending = bytearray()
         self._reassembler = Reassembler()
         self.handshake_reply = b""
+        self.last_tx_status = None   # 0x12 = bus ACKed, 0x02 = no ACK
+        self.tx_ok = 0
+        self.tx_fail = 0
 
         self._flush()
         self._port.write(bytes([0x55, CMD_STOP, 0xAA, 0x55]))   # stop any streaming
@@ -166,6 +169,15 @@ class Usb2CanLink:
                 continue
             del self._rx[:RX_LEN]
             command = frame[1]
+            if command in (0x02, 0x12):
+                # The adapter answers every forwarded frame with its bus status;
+                # 0x02 means nobody ACKed (wiring / ground / bitrate).
+                self.last_tx_status = command
+                if command == 0x12:
+                    self.tx_ok += 1
+                else:
+                    self.tx_fail += 1
+                continue
             if command != CMD_RX_FRAME:
                 continue
             (can_id,) = struct.unpack_from("<I", frame, 3)
