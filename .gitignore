@@ -1,16 +1,26 @@
-# 本地只读输入及独立参考仓库
+# Read-only reference material and vendor drops
 /hard1/
 /soft1/soft_lib_1/
 /soft1/soft_up_1.0/
 /2027*.pdf
 
+# Build outputs
 /build/
 **/build/
 **/.gradle/
 **/__pycache__/
 *.py[cod]
+
+# Per-user Keil window layout
 *.uvguix.*
+
+# Keil target options are per-user, except the two projects whose debugger is
+# ST-Link V2 and whose flash algorithm is part of the deliverable.
 *.uvoptx
+!chen_bot_v_1_0/MDK-ARM/*.uvoptx
+!soft1/development/Firmware/MDK-ARM/*.uvoptx
+
+# Local machine state
 local.properties
 .env
 .vscode/
