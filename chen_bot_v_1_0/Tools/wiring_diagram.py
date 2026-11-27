@@ -90,7 +90,7 @@ def main():
     wire(d, [(820, 210), (820, 530), (860, 530)], POWER)
 
     # ------------------------------------------------ control row
-    box(d, 60, 590, 350, 200, "达妙 USB2CAN", ["Type-C → PC（供电+通信）", "CAN 2P:  H→P7.4  L→P7.3", "UART 3P: GND→P7.2 (TX/RX 不用)", "120Ω 默认 ON"], edge=SIGNAL)
+    box(d, 60, 590, 350, 200, "达妙 USB2CAN", ["Type-C → PC（供电+通信）", "CAN 座: H→第4脚  L→第3脚", "UART 座: GND→第2脚 (TX/RX 不用)", "120Ω 默认 ON"], edge=SIGNAL)
     box(d, 60, 800, 300, 130, "ST-Link/V2", ["SWDIO↔PA13  SWCLK↔PA14", "3V3 仅参考  GND"], edge=SIGNAL)
     box(d, 60, 960, 300, 140, "ATK-BLE02", ["PE7←TXD   PE8→RXD", "LINK→PD14  STA→PD15", "5 V / GND  暂定"], edge=NOTE)
 
@@ -104,7 +104,7 @@ def main():
         "ADC1: PC4 电池  PA5 按键  PA6 触点",
         "PWM: PA0 / PA2 电机  PE9 舵机",
         "GPIO: PE13 PE14 PD8 PD9 PB0 PA3 PA1",
-        "CAN1: PD0(RX) PD1(TX) → P7.3/P7.4",
+        "CAN1: PD0(RX) PD1(TX)  FDCAN1 AF9",
     ]
     box(d, 880, 600, 520, 380, "DM-MC-Board02 主控", mcu_lines, fill=ACCENT)
 
@@ -120,8 +120,8 @@ def main():
     dot(d, 410, 668, SIGNAL)
     dot(d, 880, 668, SIGNAL)
     # ADAPTER_GND: the CAN connector has no ground pin; the adapter's UART 3P
-    # carries GND and must be tied to P7.2 (INGND) for a valid bus.
-    wire(d, [(410, 742), (880, 742)], GROUND, "GND (P7.2)")
+    # carries GND and must be tied to the board ground (terminal pin 2).
+    wire(d, [(410, 742), (880, 742)], GROUND, "GND")
     dot(d, 410, 742, GROUND)
     dot(d, 880, 742, GROUND)
     wire(d, [(360, 865), (880, 865)], SIGNAL, "SWD")
@@ -176,7 +176,7 @@ def main():
            "全部地必须共地，动力地与信号地单点汇合；CAN 总线两端 120Ω 终端，支线不超过 0.3 m。",
            font=F_SMALL, fill=NOTE)
     d.text((78, 1514),
-           "CAN：P7(XT30PW-M 2+2) 1=VCC_OUT1 2=INGND 3=CAN1_L 4=CAN1_H；适配器 CAN 口仅 H/L，GND 取自其 UART 3P 第 1 脚，必须与 P7.2 相连。",
+           "CAN：适配器 H→端子第4脚(CAN1_H) L→第3脚(CAN1_L) GND→第2脚(INGND)；CANH/CANL 由 PD1/PD0 经板载 U1 驱动，主板需 5V 供电。",
            font=F_SMALL, fill=NOTE)
 
     OUT.mkdir(parents=True, exist_ok=True)
