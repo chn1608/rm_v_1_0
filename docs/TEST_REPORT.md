@@ -31,3 +31,11 @@ Flash 1 MiB，DTCM 128 KiB。本次最高约为 Flash 1.76%、DTCM 3.70%。IRQ�
 - 未烧录。未进行 SWD、实物 UART、BLE 对频、屏幕、ADC 或无动力 MCU 运行验证。
 - 未执行硬急停/假负载、带载、温升、编码器、底盘速度闭环、整车与赛事验收。
 - 未执行 30 分钟实时压力、看门狗和实物调度测量。按硬件待确认清单完成对应试验后逐项追加日志、板号、条件与证据。
+
+## LCD 与 SWD 技术验证构建
+
+- Keil µVision 5.24a 使用 Arm Compiler 5.06u5（build 528），通过 `UV4.exe -b <MC02_LCD_Smoke.uvprojx> -t LCD_SMOKE -o <keil-build.log>` 从项目入口构建并链接 30 个编译／汇编单元。退出码 0，0 错误、0 警告。
+- 构建目录 `build/keil/LCD_SMOKE/` 含 AXF、HEX、MAP 和 `keil-build.log`。ROM 38,240 字节，DTCM RW/ZI 5,440 字节。映射保留 `lcd_smoke` 调试结构。编译不依赖 STM32H7 DFP。本机 Flash 下载算法仍待通过 DFP 提供并核对。
+- 使用 MinGW GCC 的 C99 模拟验证，编译生产 LCD 调度逻辑及实际按键滤波器，替换 HAL/RTOS 接口。正常、LCD 初始化失败、LCD 绘制失败、ADC 初始化失败、UART 不可用五个场景均通过。覆盖五键按下与释放、心跳、串口问号查询和显示失败后的独立诊断。原三种配置的主机测试和 Python 协议向量复查通过。
+- 三页 [台架接线图](lcd-smoke-wiring.pdf) 已逐页渲染检查。该图的主控 USB-C 是唯一台架主板供电入口，转串口 VCC/3.3 V/5 V 全部留空。
+- 尚未连接探头、烧录、读取目标电压或测量屏幕与串口实物状态。上板验收条件见 [LCD 台架指南](LCD_SMOKE_GUIDE.md)。

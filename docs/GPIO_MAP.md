@@ -36,4 +36,6 @@
 | RS485 #1/#2 | PD8/PD9/PB14、PD5/PD6/PD4 | P5/P4，及 P16 差分 | USART3/2 经板载差分 | 禁用；DE 初态由硬件和后续 BSP 控制 | L0/L3，图5/6 |
 | SBUS | PD2 UART5_RX | P6.1 信号 / .2 5V / .3 地 | 板载反相 RX，100 k 8E2 候选 | 禁用，外供时核隔离 | L0/L3，图5；手册 PC02 有误 |
 
+独立 `LCD_SMOKE` 目标启用 U13 的 SPI1、背光/复位/配套控制线和 PA5 ADC，以及 P10 USART1。SWO、SPI6 和候选动力输出保持关闭。见 [台架指南](LCD_SMOKE_GUIDE.md)。
+
 扩展资源与物理位置见 [RESOURCE_MAP](RESOURCE_MAP.md)。线束级图纸见 [HARDWARE_INTERFACE](HARDWARE_INTERFACE.md)。

@@ -3,6 +3,7 @@
 项目首次里程碑为硬件候选审查与 STM32H723 HAL＋FreeRTOS 可构建基线。工作目录为本项目根目录。
 
 - [开发进度与接续计划](docs/DEVELOPMENT_STATUS.md)
+- [MC02＋LCD 台架接线和 Keil5 验证](docs/LCD_SMOKE_GUIDE.md)
 - [接线图（四页 PDF）](docs/wiring-v1.2.pdf) · [接线说明](docs/HARDWARE_INTERFACE.md) · [GPIO 分配](docs/GPIO_MAP.md) · [新旧对照](docs/GPIO_CHANGELOG.md)
 - [参考资料审查](docs/REFERENCES.md) · [试验记录](docs/TEST_REPORT.md) · [硬件待确认项](docs/HARDWARE_TODO.md)
 - [协议](docs/PROTOCOL.md) · [调试指南](docs/DEBUG_GUIDE.md) · [阶段计划](docs/DEVELOPMENT_PLAN.md)
