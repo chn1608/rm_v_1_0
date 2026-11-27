@@ -11,15 +11,42 @@ tkinter 写成，Anaconda / 官方 Python 自带，无需额外安装。
 from __future__ import annotations
 
 import argparse
+import ctypes
 import math
 import queue
 import sys
 import threading
 import time
 import tkinter as tk
+from ctypes import wintypes
 from tkinter import messagebox, ttk
 
 from protocol import Decoder, Frame, STATUS, decode_status
+
+import ctypes
+from ctypes import wintypes
+
+
+MUTEX_NAME = "Global\\chen_bot_v1_0_gui"
+ERROR_ALREADY_EXISTS = 183
+
+
+def claim_single_instance():
+    """只允许一个状态窗口；已有实例时把它提到前面并退出本进程。"""
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateMutexW.restype = wintypes.HANDLE
+    handle = kernel32.CreateMutexW(None, False, MUTEX_NAME)
+    if not handle:
+        return None
+    if ctypes.get_last_error() == ERROR_ALREADY_EXISTS:
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        hwnd = user32.FindWindowW(None, "chen_bot_v_1_0 上位机")
+        if hwnd:
+            user32.ShowWindow(hwnd, 9)      # SW_RESTORE
+            user32.SetForegroundWindow(hwnd)
+        return None
+    return handle
+
 
 FONT = ("Microsoft YaHei UI", 10)
 FONT_BIG = ("Microsoft YaHei UI", 20, "bold")
@@ -356,6 +383,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="chen_bot_v_1_0 图形界面上位机")
     parser.add_argument("--demo", action="store_true", help="用本地生成的数据查看界面")
     args = parser.parse_args()
+
+    guard = claim_single_instance()
+    if guard is None:
+        print("chen_bot_v_1_0 上位机已在运行，已切到该窗口。")
+        return 0
 
     root = tk.Tk()
     app = App(root, demo=args.demo)

@@ -161,6 +161,4 @@ python gui.py --demo     # 不接硬件，看界面
 | 左侧图表 | 电池电压趋势（最近 120 点） |
 | 右侧事件 | 连接、超时、故障码等日志 |
 
-![界面预览](../soft1/development/PC_Debug/gui_preview.png)
-
 命令行版本 `monitor.py` 仍然保留，适合无界面环境或写 CSV。
