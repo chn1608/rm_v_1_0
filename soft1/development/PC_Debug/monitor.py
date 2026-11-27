@@ -8,6 +8,7 @@ import subprocess
 import time
 
 from can_link import CanLink, open_bus
+from usb2can_link import Usb2CanLink
 from protocol import Decoder, Frame, STATUS, STATUS_REPLY, decode_status
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -46,12 +47,15 @@ def main():
     source = p.add_mutually_exclusive_group(required=True)
     source.add_argument("--sim", action="store_true")
     source.add_argument("--can", action="store_true",
-                        help="talk to the board through a Damiao USB2CANFD adapter")
+                        help="Damiao USB2CANFD adapter (SLCAN or gs_usb firmware)")
+    source.add_argument("--usb2can", action="store_true",
+                        help="Damiao USB2CAN adapter, factory CDC firmware")
     source.add_argument("--list-can", action="store_true")
     source.add_argument("--replay", type=Path)
     p.add_argument("--can-interface", default="slcan",
                    help="slcan (module flashed with SLCAN) or gs_usb (gs_usb firmware)")
     p.add_argument("--can-channel", default="COM3", help="COMx for slcan, 0 for gs_usb")
+    p.add_argument("--port", default="COM10", help="serial port of a USB2CAN adapter")
     p.add_argument("--can-bitrate", type=int, default=1000000)
     p.add_argument("--samples", type=int, default=20)
     p.add_argument("--period-ms", type=int, default=50)
@@ -99,9 +103,14 @@ def main():
                 sim.stdin.flush()
             results = requests(read, write, decoder, args.samples, args.period_ms, raw)
         else:
-            bus = stack.enter_context(open_bus(args.can_interface, args.can_channel,
-                                               args.can_bitrate))
-            link = CanLink(bus)
+            if args.usb2can:
+                link = Usb2CanLink(args.port)
+                print("handshake:", link.handshake_reply)
+                stack.callback(link.close)
+            else:
+                bus = stack.enter_context(open_bus(args.can_interface, args.can_channel,
+                                                   args.can_bitrate))
+                link = CanLink(bus)
             results = requests(lambda: link.read(73), link.write, decoder, args.samples,
                                args.period_ms, raw)
         output = stack.enter_context(args.csv.open("x", encoding="utf-8", newline="")) if args.csv else None

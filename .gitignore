@@ -24,3 +24,5 @@
 local.properties
 .env
 .vscode/
+
+tools/usb2canfd/
