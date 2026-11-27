@@ -121,3 +121,27 @@ python C:\Users\33515\Desktop\rm_v_1_0\soft1\development\PC_Debug\monitor.py `
   → 命令 `0x02`（无 ACK）、CAN ID 正确解析为 `0x600`，证明帧格式与 CRC 实现正确。
 - 依次尝试索引 0–8（1M→100k），均无 ACK，说明 MCU 侧尚未在总线上应答，
   需先确认 CAN_H/CAN_L 接线、共地与 5 V 供电。
+
+## 6. 图形界面上位机
+
+`soft1/development/PC_Debug/gui.py`，tkinter 写成，Python 自带，无需额外安装。
+
+```powershell
+cd C:\Users\33515\Desktop\rm_v_1_0\soft1\development\PC_Debug
+python gui.py            # 接硬件
+python gui.py --demo     # 不接硬件，看界面
+```
+
+界面包含：
+
+| 区域 | 内容 |
+|---|---|
+| 顶部 | 串口下拉（自动枚举）、刷新、连接/断开、连接状态 |
+| 大数字 | 电池电压、系统状态、控制权 |
+| 指标格 | 运行时间、舵机脉冲、舵机角度、左右轮输出、最大循环耗时、有效帧、错误帧、电流 |
+| 左侧图表 | 电池电压趋势（最近 120 点） |
+| 右侧事件 | 连接、超时、故障码等日志 |
+
+![界面预览](../soft1/development/PC_Debug/gui_preview.png)
+
+命令行版本 `monitor.py` 仍然保留，适合无界面环境或写 CSV。
