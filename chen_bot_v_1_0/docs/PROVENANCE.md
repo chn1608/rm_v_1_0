@@ -1,6 +1,6 @@
 # 来源与范围声明
 
-本仓库为**私有**仓库，保存本项目自身的开发产物：
+本仓库为**公开**仓库，保存本项目自身的开发产物：
 
 1. `chen_bot_v_1_0/` —— 本次会话按《V_1.2》新建的固件框架；
 2. `soft1/development/` —— 台架固件、PC 调试、Android 协议、Tools 等开发内容；
@@ -33,9 +33,16 @@
 
 - ST HAL 驱动与 `stm32h7xx_hal_conf.h`：ST 的 BSD-3-Clause 类许可，文件内版权头不得删除。
 - FreeRTOS：MIT，`FreeRTOSConfig.h` 属配置而非内核源码。
-- 字体：见 `Firmware/HMI/FONT_LICENSE.txt`，随字体数据一并保留。
+- 字体：Source Han Sans（Adobe，SIL OFL 1.1），`Firmware/HMI/FONT_LICENSE.txt` 随字体数据保留；
+  仓库内只存放栅格化点阵，不包含原始字体文件。
 - 达妙 DM-MC02 的说明书、原理图与参考代码：**未上传**，仅本地只读引用；
-  对外展示或再分发前需自行确认厂商授权。
+  需要分发时请先获得厂商许可。
+
+## 公开范围提示
+
+仓库公开后，任何人都可以克隆和查看。以下内容**不在**仓库内，因此不会随克隆分发：
+厂商 HAL/CMSIS/FreeRTOS 源码、RM2021_Hero 参考工程、厂商 PDF 手册。
+克隆者要完成编译，需要自行取得对应厂商资料并放到 `hard1/hard_lib_1/MC02_data/mc02_control`。
 
 ## 维护约定
 

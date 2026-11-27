@@ -73,5 +73,5 @@ Keil：打开 `MDK-ARM/chen_bot_v_1_0.uvprojx`，目标 `CHEN_BOT`，F7 构建�
   `MDK-ARM/config/stm32h7xx_hal_conf.h`：厂商派生，保留原版权头；
 - 厂商 HAL/CMSIS/FreeRTOS 源码与 RM2021_Hero 参考工程**不在本仓库**，仅本地引用。
 
-仓库为私有。第三方资料（厂商 HAL/CMSIS/FreeRTOS 源码、RM2021_Hero 参考工程）不在仓库内，
-其余为本项目自身的开发产物。
+仓库已公开。第三方资料（厂商 HAL/CMSIS/FreeRTOS 源码、RM2021_Hero 参考工程）不在仓库内，
+克隆后需另行取得；其余为本项目自身的开发产物。
