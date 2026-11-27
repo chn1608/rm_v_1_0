@@ -62,3 +62,16 @@ Keil：打开 `MDK-ARM/chen_bot_v_1_0.uvprojx`，目标 `CHEN_BOT`，F7 构建�
 - 已通过主机测试：协议、参数、安全、底盘、舵机、PID、按键、快照、调试服务。
 - 未执行：实机烧录、LCD 画面、BLE 实机链路、电机/舵机带载、ADC 标定。
   详见 `docs/TEST_REPORT.md` 与 `docs/ACCEPTANCE.md`。
+
+## 来源与范围
+
+本工程的部分模块继承自上一轮开发会话，部分文件派生于达妙官方工程，逐项说明见
+[`docs/PROVENANCE.md`](docs/PROVENANCE.md)。要点：
+
+- `Firmware/HMI/*`、`Firmware/BSP/lcd.c`：继承自上一轮会话；
+- `Firmware/BSP/timebase.c`、`Firmware/Config/FreeRTOSConfig.h`、`BSP/layout.sct`、
+  `MDK-ARM/config/stm32h7xx_hal_conf.h`：厂商派生，保留原版权头；
+- 厂商 HAL/CMSIS/FreeRTOS 源码与 RM2021_Hero 参考工程**不在本仓库**，仅本地引用。
+
+仓库为私有。第三方资料（厂商 HAL/CMSIS/FreeRTOS 源码、RM2021_Hero 参考工程）不在仓库内，
+其余为本项目自身的开发产物。
