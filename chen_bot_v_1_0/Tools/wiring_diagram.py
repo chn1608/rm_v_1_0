@@ -1,4 +1,4 @@
-﻿"""Draw the chen_bot_v_1_0 wiring diagram (PNG + PDF).
+"""Draw the chen_bot_v_1_0 wiring diagram (PNG + PDF).
 
 The diagram is generated from the same constants that drive the firmware
 (Firmware/Config/board_config.h), so a pin change is a one-line edit here too.
@@ -90,7 +90,7 @@ def main():
     wire(d, [(820, 210), (820, 530), (860, 530)], POWER)
 
     # ------------------------------------------------ control row
-    box(d, 60, 610, 330, 175, "达妙 USB2CANFD", ["Type-C → PC（供电+通信）", "CAN 2P: H→P7.4  L→P7.3", "120Ω 默认 ON；与主板共地"], edge=SIGNAL)
+    box(d, 60, 590, 350, 200, "达妙 USB2CAN", ["Type-C → PC（供电+通信）", "CAN 2P:  H→P7.4  L→P7.3", "UART 3P: GND→P7.2 (TX/RX 不用)", "120Ω 默认 ON"], edge=SIGNAL)
     box(d, 60, 800, 300, 130, "ST-Link/V2", ["SWDIO↔PA13  SWCLK↔PA14", "3V3 仅参考  GND"], edge=SIGNAL)
     box(d, 60, 960, 300, 140, "ATK-BLE02", ["PE7←TXD   PE8→RXD", "LINK→PD14  STA→PD15", "5 V / GND  暂定"], edge=NOTE)
 
@@ -116,9 +116,14 @@ def main():
         "10 KEY→PA5（五向键梯形电阻）",
     ], edge=SIGNAL)
 
-    wire(d, [(390, 690), (880, 690)], SIGNAL, "CAN1 H/L")
-    dot(d, 390, 690, SIGNAL)
-    dot(d, 880, 690, SIGNAL)
+    wire(d, [(410, 668), (880, 668)], SIGNAL, "CAN1 H/L")
+    dot(d, 410, 668, SIGNAL)
+    dot(d, 880, 668, SIGNAL)
+    # ADAPTER_GND: the CAN connector has no ground pin; the adapter's UART 3P
+    # carries GND and must be tied to P7.2 (INGND) for a valid bus.
+    wire(d, [(410, 742), (880, 742)], GROUND, "GND (P7.2)")
+    dot(d, 410, 742, GROUND)
+    dot(d, 880, 742, GROUND)
     wire(d, [(360, 865), (880, 865)], SIGNAL, "SWD")
     dot(d, 360, 865, SIGNAL)
     dot(d, 880, 865, SIGNAL)
@@ -171,16 +176,31 @@ def main():
            "全部地必须共地，动力地与信号地单点汇合；CAN 总线两端 120Ω 终端，支线不超过 0.3 m。",
            font=F_SMALL, fill=NOTE)
     d.text((78, 1514),
-           "CAN：P7(XT30PW-M 2+2) 1=VCC_OUT1 2=INGND 3=CAN1_L 4=CAN1_H；模块需刷 SLCAN 或 gs_usb 固件，CAN 口无 GND，必须与主板共地。",
+           "CAN：P7(XT30PW-M 2+2) 1=VCC_OUT1 2=INGND 3=CAN1_L 4=CAN1_H；适配器 CAN 口仅 H/L，GND 取自其 UART 3P 第 1 脚，必须与 P7.2 相连。",
            font=F_SMALL, fill=NOTE)
 
     OUT.mkdir(parents=True, exist_ok=True)
     png = OUT / "wiring_chen_bot_v1_0.png"
     pdf = OUT / "wiring_chen_bot_v1_0.pdf"
-    img.save(png)
-    img.save(pdf, "PDF", resolution=150.0)
-    print(png)
-    print(pdf)
+    def save(image, path, fmt=None):
+        """Save, but survive a viewer holding the previous file open."""
+        try:
+            if fmt:
+                image.save(path, fmt, resolution=150.0)
+            else:
+                image.save(path)
+            return path
+        except PermissionError:
+            alt = path.with_name(path.stem + "_new" + path.suffix)
+            if fmt:
+                image.save(alt, fmt, resolution=150.0)
+            else:
+                image.save(alt)
+            print("locked, wrote", alt)
+            return alt
+
+    print(save(img, png))
+    print(save(img, pdf, "PDF"))
 
 
 if __name__ == "__main__":
