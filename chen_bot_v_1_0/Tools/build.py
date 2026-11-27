@@ -1,4 +1,4 @@
-﻿"""Build chen_bot_v_1_0: host unit tests with GCC, firmware with Arm Compiler 5.
+"""Build chen_bot_v_1_0: host unit tests with GCC, firmware with Arm Compiler 5.
 
 Usage:
     python Tools/build.py host
@@ -78,7 +78,7 @@ def host(out):
     run([cc, "-std=c99", "-Wall", "-Wextra", "-Werror", "-pedantic", "-O2",
          "-DCHEN_PROFILE=2", "-DCHEN_FEATURE_ACTUATION=1",
          *("-I" + str(FW / p) for p in HOST_INCLUDES),
-         *PURE, FW / "Test/test_core.c", "-o", exe])
+         *PURE, FW.parent / "Tests" / "test_core.c", "-o", exe])
     run([exe])
     print(f"host tests ok: {exe}")
 

@@ -118,7 +118,12 @@ bool board_can_init(void)
                                      FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE) != HAL_OK)
         return false;
     if (HAL_FDCAN_Start(&can) != HAL_OK) return false;
-    if (HAL_FDCAN_ActivateNotification(&can, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0u) != HAL_OK)
+    /* Also react to bus-off: without a recovery path a single period with no
+     * ACK (adapter unplugged, 5 V missing) latches the node off the bus for
+     * good, which then looks exactly like a wiring fault. */
+    if (HAL_FDCAN_ActivateNotification(&can,
+                                       FDCAN_IT_RX_FIFO0_NEW_MESSAGE | FDCAN_IT_BUS_OFF,
+                                       0u) != HAL_OK)
         return false;
 
     HAL_NVIC_SetPriority(FDCAN1_IT0_IRQn, 7u, 0u);
@@ -158,6 +163,17 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *handle, uint32_t flags)
 void FDCAN1_IT0_IRQHandler(void)
 {
     HAL_FDCAN_IRQHandler(&can);
+}
+
+void HAL_FDCAN_ErrorStatusCallback(FDCAN_HandleTypeDef *handle, uint32_t flags)
+{
+    if (handle != &can || (flags & FDCAN_IT_BUS_OFF) == 0u) return;
+    /* Restart the node so it rejoins the bus once the wiring or power is back. */
+    (void)HAL_FDCAN_Stop(handle);
+    (void)HAL_FDCAN_Start(handle);
+    (void)HAL_FDCAN_ActivateNotification(handle,
+                                         FDCAN_IT_RX_FIFO0_NEW_MESSAGE | FDCAN_IT_BUS_OFF,
+                                         0u);
 }
 
 /* Reader side: unsegment into the protocol byte stream. */
