@@ -35,6 +35,7 @@ GROUPS = [
         "Firmware/BSP/lcd.c",
         "Firmware/BSP/uart_link.c",
         "Firmware/BSP/timebase.c",
+        "Firmware/BSP/can_link.c",
     ], 1),
     ("Drivers/Devices", [
         "Firmware/Device/keys.c",
@@ -45,7 +46,7 @@ GROUPS = [
 
 HAL = ["", "_cortex", "_rcc", "_rcc_ex", "_flash", "_flash_ex", "_pwr", "_pwr_ex",
        "_gpio", "_tim", "_tim_ex", "_uart", "_uart_ex", "_dma", "_dma_ex",
-       "_adc", "_adc_ex", "_spi", "_spi_ex"]
+       "_adc", "_adc_ex", "_spi", "_spi_ex", "_fdcan"]
 
 INCLUDES = [
     "config",
@@ -63,7 +64,8 @@ INCLUDES = [
 DEFINES = "STM32H723xx,USE_HAL_DRIVER,HSE_VALUE=24000000UL,CHEN_PROFILE=2,CHEN_FEATURE_ACTUATION=0"
 
 MODULES = ["HAL_UART_MODULE_ENABLED", "HAL_ADC_MODULE_ENABLED", "HAL_SPI_MODULE_ENABLED",
-           "HAL_TIM_MODULE_ENABLED", "HAL_DMA_MODULE_ENABLED", "HAL_GPIO_MODULE_ENABLED"]
+           "HAL_TIM_MODULE_ENABLED", "HAL_DMA_MODULE_ENABLED", "HAL_GPIO_MODULE_ENABLED",
+           "HAL_FDCAN_MODULE_ENABLED"]
 
 
 def vendor(rel):

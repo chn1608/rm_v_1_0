@@ -46,6 +46,7 @@ ARM_FILES = [
     "BSP/lcd.c",
     "BSP/uart_link.c",
     "BSP/timebase.c",
+    "BSP/can_link.c",
     "Config/params.c",
     "Control/chassis.c",
     "Control/pid.c",
@@ -63,7 +64,7 @@ ARM_FILES = [
 
 HAL_MODULES = ("", "_cortex", "_rcc", "_rcc_ex", "_flash", "_flash_ex", "_pwr", "_pwr_ex",
                "_gpio", "_tim", "_tim_ex", "_uart", "_uart_ex", "_dma", "_dma_ex",
-               "_adc", "_adc_ex", "_spi", "_spi_ex")
+               "_adc", "_adc_ex", "_spi", "_spi_ex", "_fdcan")
 
 
 def run(argv):

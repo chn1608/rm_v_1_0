@@ -1,4 +1,4 @@
-"""Read-only MC02 status monitor with serial, C simulation, and binary replay."""
+"""Read-only MC02 status monitor over USB2CANFD, C simulation, or binary replay."""
 import argparse
 from contextlib import ExitStack
 import csv
@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import time
 
+from can_link import CanLink, open_bus
 from protocol import Decoder, Frame, STATUS, STATUS_REPLY, decode_status
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -44,10 +45,14 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     source = p.add_mutually_exclusive_group(required=True)
     source.add_argument("--sim", action="store_true")
-    source.add_argument("--serial", metavar="PORT")
-    source.add_argument("--list-ports", action="store_true")
+    source.add_argument("--can", action="store_true",
+                        help="talk to the board through a Damiao USB2CANFD adapter")
+    source.add_argument("--list-can", action="store_true")
     source.add_argument("--replay", type=Path)
-    p.add_argument("--baud", type=int, default=115200)
+    p.add_argument("--can-interface", default="slcan",
+                   help="slcan (module flashed with SLCAN) or gs_usb (gs_usb firmware)")
+    p.add_argument("--can-channel", default="COM3", help="COMx for slcan, 0 for gs_usb")
+    p.add_argument("--can-bitrate", type=int, default=1000000)
     p.add_argument("--samples", type=int, default=20)
     p.add_argument("--period-ms", type=int, default=50)
     p.add_argument("--csv", type=Path)
@@ -61,16 +66,11 @@ def main():
 
     decoder = Decoder()
     with ExitStack() as stack:
-        if args.serial or args.list_ports:
-            try:
-                import serial
-                from serial.tools import list_ports
-            except ImportError:
-                p.error("install PySerial in a project virtual environment to use physical ports")
-            if args.list_ports:
-                for entry in sorted(list_ports.comports()):
-                    print(f"{entry.device}\t{entry.description}")
-                return
+        if args.list_can:
+            import can
+            for entry in can.detect_available_configs():
+                print(entry)
+            return
         raw = stack.enter_context(args.record.open("xb")) if args.record else None
         if args.replay:
             results = replay(stack.enter_context(args.replay.open("rb")), decoder)
@@ -99,9 +99,10 @@ def main():
                 sim.stdin.flush()
             results = requests(read, write, decoder, args.samples, args.period_ms, raw)
         else:
-            conn = stack.enter_context(serial.Serial(args.serial, args.baud, timeout=0.05,
-                                                      write_timeout=0.5))
-            results = requests(lambda: conn.read(73), conn.write, decoder, args.samples,
+            bus = stack.enter_context(open_bus(args.can_interface, args.can_channel,
+                                               args.can_bitrate))
+            link = CanLink(bus)
+            results = requests(lambda: link.read(73), link.write, decoder, args.samples,
                                args.period_ms, raw)
         output = stack.enter_context(args.csv.open("x", encoding="utf-8", newline="")) if args.csv else None
         writer = None

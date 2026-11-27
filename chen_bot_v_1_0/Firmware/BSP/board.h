@@ -1,4 +1,4 @@
-#ifndef CHEN_BSP_BOARD_H
+﻿#ifndef CHEN_BSP_BOARD_H
 #define CHEN_BSP_BOARD_H
 #include <stdbool.h>
 #include <stdint.h>
@@ -25,8 +25,15 @@ bool board_power_set(bool enable);
 
 bool board_analog_battery(Reading *out);
 bool board_analog_estop(Reading *out);
+void board_analog_refresh(void);
 bool board_analog_key(uint16_t *millivolts);
 bool board_relay_state(unsigned relay, bool *closed);
+
+/* CAN1 link to the PC through a Damiao USB2CANFD adapter. */
+bool board_can_init(void);
+bool board_can_ready(void);
+Transport board_can_transport(void);
+uint32_t board_can_errors(void);
 
 Transport board_pc_transport(void);
 Transport board_ble_transport(void);

@@ -1,4 +1,9 @@
-"""V1.0 stream framing, shared by status polling and log replay."""
+"""V1.0 stream framing and the 36-byte status payload.
+
+Shared by the CAN monitor, the C simulator link and binary log replay. The
+layout below must stay identical to `snapshot_encode_status()` in
+`Firmware/Service/snapshot.c` and to docs/PROTOCOL.md.
+"""
 from dataclasses import dataclass
 import binascii
 import struct
@@ -8,9 +13,16 @@ VERSION = 0x10
 MAX_PAYLOAD = 64
 STATUS = 0x02
 STATUS_REPLY = 0x82
-STATUS_LAYOUT = struct.Struct("<IBBBBI BBiIhhBII")
+
+# layout_version, state, owner, flags, left_cmd, right_cmd, left_out, right_out,
+# servo_us, servo_decideg, battery_mv, current_ma, faults, uptime_s,
+# good_frames, bad_frames, loop_max_us, battery_src, current_src
+STATUS_LAYOUT = struct.Struct("<BBBBhhhhHhHHIIHHHBB")
+STATUS_BYTES = STATUS_LAYOUT.size
 SOURCES = ("invalid", "measured", "command", "estimated", "simulated",
            "absent", "uncalibrated", "stale")
+STATES = ("boot", "self-test", "standby", "local", "remote", "fault", "estop")
+OWNERS = ("none", "local", "ble", "pc")
 
 
 @dataclass(frozen=True)
@@ -66,15 +78,35 @@ class Decoder:
 
 
 def decode_status(frame):
-    if frame.kind != STATUS_REPLY or len(frame.payload) != STATUS_LAYOUT.size:
+    if frame.kind != STATUS_REPLY or len(frame.payload) != STATUS_BYTES:
         raise ValueError("invalid status response")
-    now, profile, state, owner, permit, faults, source, valid, mv, sample_ms, left, right, version, good, bad = (
-        STATUS_LAYOUT.unpack(frame.payload)
-    )
-    if profile not in (1, 2, 3) or source >= len(SOURCES) or valid not in (0, 1):
+    (layout, state, owner, flags, left_cmd, right_cmd, left_out, right_out,
+     servo_us, servo_decideg, battery_mv, current_ma, faults, uptime_s,
+     good, bad, loop_us, battery_src, current_src) = STATUS_LAYOUT.unpack(frame.payload)
+    if layout != 1 or state >= len(STATES) or owner >= len(OWNERS):
         raise ValueError("invalid status metadata")
-    return dict(time_ms=now, profile=("SIM", "BENCH", "RUN")[profile - 1],
-                state=state, owner=owner, motion_permitted=permit, faults=faults,
-                bus_mv=mv if valid else None, bus_source=SOURCES[source],
-                bus_sample_ms=sample_ms, left_permille=left, right_permille=right,
-                config=version, good_frames=good, bad_frames=bad)
+    if battery_src >= len(SOURCES) or current_src >= len(SOURCES):
+        raise ValueError("invalid data source")
+    return dict(
+        uptime_s=uptime_s,
+        state=STATES[state],
+        owner=OWNERS[owner],
+        motion_permitted=bool(flags & 0x01),
+        power_enabled=bool(flags & 0x08),
+        ble_link=bool(flags & 0x10),
+        pc_link=bool(flags & 0x20),
+        left_cmd=left_cmd,
+        right_cmd=right_cmd,
+        left_out=left_out,
+        right_out=right_out,
+        servo_us=servo_us,
+        servo_mdeg=servo_decideg * 10,
+        bus_mv=battery_mv if (flags & 0x02) else None,
+        bus_source=SOURCES[battery_src],
+        current_ma=current_ma if (flags & 0x04) else None,
+        current_source=SOURCES[current_src],
+        faults=faults,
+        good_frames=good,
+        bad_frames=bad,
+        loop_max_us=loop_us,
+    )

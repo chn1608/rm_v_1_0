@@ -21,8 +21,13 @@
 #ifndef CHEN_FEATURE_BLE
 #define CHEN_FEATURE_BLE 1
 #endif
+/* PC link. The USART1 + USB-TTL status output is retired; the PC now talks to
+ * the board over Damiao USB2CANFD on CAN1. */
 #ifndef CHEN_FEATURE_PC_DEBUG
-#define CHEN_FEATURE_PC_DEBUG 1
+#define CHEN_FEATURE_PC_DEBUG 0
+#endif
+#ifndef CHEN_FEATURE_PC_CAN
+#define CHEN_FEATURE_PC_CAN 1
 #endif
 #ifndef CHEN_FEATURE_BATTERY_ADC
 #define CHEN_FEATURE_BATTERY_ADC 1
@@ -45,6 +50,7 @@
 #ifndef CHEN_FEATURE_PARAM_NVM
 #define CHEN_FEATURE_PARAM_NVM 0    /* Flash persistence of the parameter block */
 #endif
+
 
 /* Real actuation is compiled in only when the output stage has been reviewed
  * and the build is not the simulated one. */

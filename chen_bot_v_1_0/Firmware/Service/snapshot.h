@@ -35,6 +35,11 @@ typedef struct {
     Reading current_ma;
     Reading wheel_rpm[2];
     Reading servo_feedback_mdeg;
+    /* Sampled once per control tick by the only task that owns the ADC, so the
+     * HMI never touches the converter concurrently. */
+    uint16_t key_raw;
+    bool key_valid;
+    Reading estop_mv;
     bool power_enabled;      /* commanded relay state */
     bool relay_closed[2];    /* real contact feedback, currently not fitted */
 

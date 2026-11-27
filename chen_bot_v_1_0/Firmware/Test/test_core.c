@@ -253,32 +253,38 @@ static void test_pid(void)
 
 static void test_keys(void)
 {
-    assert(key_classify_mv(0) == KEY_CENTER);
-    assert(key_classify_mv(660) == KEY_LEFT);
-    assert(key_classify_mv(1320) == KEY_RIGHT);
-    assert(key_classify_mv(1980) == KEY_UP);
-    assert(key_classify_mv(2640) == KEY_DOWN);
-    assert(key_classify_mv(3300) == KEY_NONE);
-    assert(key_classify_mv(4000) == KEY_UNKNOWN);
+    /* Official DM-MC02 windows (raw 12-bit counts). */
+    assert(key_classify_raw(0) == KEY_CENTER);
+    assert(key_classify_raw(100) == KEY_CENTER);
+    assert(key_classify_raw(816) == KEY_RIGHT);
+    assert(key_classify_raw(1635) == KEY_LEFT);
+    assert(key_classify_raw(2457) == KEY_UP);
+    assert(key_classify_raw(3279) == KEY_DOWN);
+    assert(key_classify_raw(3300) == KEY_DOWN);   /* inside the down window */
+    assert(key_classify_raw(4000) == KEY_NONE);    /* released is full scale */
+    /* Values in the gaps between windows are released, never a stray key. */
+    assert(key_classify_raw(400) == KEY_NONE);
+    assert(key_classify_raw(1200) == KEY_NONE);
+    assert(key_classify_raw(2000) == KEY_NONE);
+    assert(key_classify_raw(2650) == KEY_NONE);
 
-    /* A +/-10% ADC gain error must not lose any key. */
-    for (unsigned percent = 90u; percent <= 110u; percent += 10u) {
-        assert(key_classify_mv((uint16_t)((1980u * percent) / 100u)) == KEY_UP);
-        assert(key_classify_mv((uint16_t)((2640u * percent) / 100u)) == KEY_DOWN);
-        assert(key_classify_mv((uint16_t)((660u * percent) / 100u)) == KEY_LEFT);
-        assert(key_classify_mv((uint16_t)((1320u * percent) / 100u)) == KEY_RIGHT);
-    }
-
+    /* Time based debounce: a level must hold CHEN_KEY_STABLE_MS before it is
+     * accepted, and the RC ramp after release must not create extra keys. */
     KeyFilter f = {0};
     Key event = KEY_NONE;
-    assert(!key_update(&f, KEY_UP, &event));
-    assert(!key_update(&f, KEY_UP, &event));
-    assert(key_update(&f, KEY_UP, &event) && event == KEY_UP);
-    assert(!key_update(&f, KEY_UP, &event));
-    assert(!key_update(&f, KEY_UNKNOWN, &event));
-    /* A release is reported so the caller can stop repeat handling. */
-    for (unsigned i = 0; i < 2u; ++i) assert(!key_update(&f, KEY_NONE, &event));
-    assert(key_update(&f, KEY_NONE, &event) && event == KEY_NONE);
+    assert(!key_update(&f, KEY_UP, 0u, &event));
+    assert(!key_update(&f, KEY_UP, 10u, &event));
+    assert(!key_update(&f, KEY_UP, 20u, &event));
+    assert(key_update(&f, KEY_UP, 50u, &event) && event == KEY_UP);
+    assert(!key_update(&f, KEY_UP, 200u, &event));          /* held: no repeat */
+
+    /* Release ramp through the down rung must not be reported. */
+    assert(!key_update(&f, KEY_DOWN, 205u, &event));
+    assert(!key_update(&f, KEY_DOWN, 210u, &event));
+    assert(!key_update(&f, KEY_DOWN, 215u, &event));
+    assert(!key_update(&f, KEY_NONE, 220u, &event));
+    assert(!key_update(&f, KEY_NONE, 230u, &event));
+    assert(key_update(&f, KEY_NONE, 300u, &event) && event == KEY_NONE);
 }
 
 /* ---------------------------------------------------------------- snapshot */

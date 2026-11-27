@@ -1,4 +1,4 @@
-/* chen_bot_v_1_0 firmware entry point.
+﻿/* chen_bot_v_1_0 firmware entry point.
  *
  * Start-up order is deliberate: safe pin levels first (before HAL or clocks),
  * then clocks, then the buses, then the device table, then the application.
@@ -8,6 +8,7 @@
 #include "app.h"
 #include "board.h"
 #include "features.h"
+#include "lcd.h"
 #include "mock.h"
 #include "profile.h"
 #include "real_devices.h"
@@ -59,7 +60,17 @@ int main(void)
      *    fatal: the robot can still run and report over whichever link works. */
     const bool links = board_links_init();
     (void)board_pwm_init();
-    (void)board_analog_init();
+    const bool analog_ok = board_analog_init();
+    (void)analog_ok;
+#if CHEN_FEATURE_PC_CAN
+    const bool can_ok = board_can_init();
+#else
+    const bool can_ok = false;
+#endif
+    (void)can_ok;
+
+        const bool lcd_ok = smoke_panel_init();
+    if (lcd_ok) smoke_panel_set_backlight(true);
 
     /* 4. Device table for this profile. */
     Devices devices;
@@ -72,7 +83,7 @@ int main(void)
 #endif
 
     /* 5. Application: parameters, safety, tasks. */
-    if (!app_init(&devices, links || CHEN_PROFILE == CHEN_SIM)) board_fatal();
+    if (!app_init(&devices, links || CHEN_PROFILE == CHEN_SIM, lcd_ok)) board_fatal();
     app_start();
 
     /* 6. Hand control to the scheduler; reaching here again is a failure. */

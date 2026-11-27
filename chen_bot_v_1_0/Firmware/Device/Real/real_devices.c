@@ -49,9 +49,11 @@ static DeviceResult real_keys(void *context, Key *key)
 {
     (void)context;
     if (key == NULL) return DEV_INVALID;
-    uint16_t mv = 0u;
-    if (!board_analog_key(&mv)) return DEV_IO;
-    *key = key_classify_mv(mv);
+    uint16_t raw = 0u;
+    /* Reads the control task's last scan; the HMI itself consumes the debounced
+     * event queue instead of polling this adapter. */
+    if (!board_analog_key(&raw)) return DEV_IO;
+    *key = key_classify_raw(raw);
     return DEV_OK;
 }
 

@@ -1,4 +1,4 @@
-#ifndef CHEN_CONFIG_BOARD_CONFIG_H
+﻿#ifndef CHEN_CONFIG_BOARD_CONFIG_H
 #define CHEN_CONFIG_BOARD_CONFIG_H
 
 /* Single source of truth for pin, peripheral and scaling constants.
@@ -37,6 +37,17 @@
 #define BOARD_KEY_IDLE_MV 3300u
 #define BOARD_KEY_DETECT_MV 3120u
 
+/* Raw-count windows from the official DM-MC02 KEY example (see keys.h). */
+#define BOARD_KEY_WIN_CENTER_MAX 200u
+#define BOARD_KEY_WIN_RIGHT_MIN 700u
+#define BOARD_KEY_WIN_RIGHT_MAX 1000u
+#define BOARD_KEY_WIN_LEFT_MIN 1500u
+#define BOARD_KEY_WIN_LEFT_MAX 1800u
+#define BOARD_KEY_WIN_UP_MIN 2200u
+#define BOARD_KEY_WIN_UP_MAX 2500u
+#define BOARD_KEY_WIN_DOWN_MIN 2800u
+#define BOARD_KEY_WIN_DOWN_MAX 3500u
+
 /* ---- L0: debug UART (USART1) ------------------------------------------ */
 #define BOARD_DEBUG_UART 1u
 #define BOARD_DEBUG_TX_PIN 9u         /* PA9  */
@@ -73,6 +84,11 @@
 #define BOARD_VBAT_ADC_PIN 4u
 #define BOARD_VBAT_DIVIDER_NUM 11u    /* R86 100k / R87 10k -> 11:1 */
 #define BOARD_VBAT_DIVIDER_DEN 1u
+
+/* ---- L2: CAN1 (PD0/PD1, on-board transceiver) ------------------------- */
+#define BOARD_CAN_RX_ID 0x600u        /* PC -> MCU  */
+#define BOARD_CAN_TX_ID 0x601u        /* MCU -> PC  */
+#define BOARD_CAN_BITRATE 1000000u    /* classic CAN, 1 Mbit/s */
 
 /* ---- L0: board indicators --------------------------------------------- */
 #define BOARD_BUZZER_PIN 15u          /* PB15 */

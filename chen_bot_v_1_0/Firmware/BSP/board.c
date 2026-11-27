@@ -245,86 +245,107 @@ bool board_analog_init(void)
     HAL_GPIO_Init(GPIOA, &pin);
     pin.Pin = GPIO_PIN_4;
     HAL_GPIO_Init(GPIOC, &pin);
-    pin.Pin = GPIO_PIN_5;                /* PA5 five-way ladder */
+    /* The five-way ladder is only a resistor network: if the module's 100K
+     * pull-up is missing (J13 pin 10 not making contact) the pin floats and the
+     * converter reads noise. The internal pull-up keeps the input defined and
+     * still allows the ladder to divide it down. */
+    pin.Pin = GPIO_PIN_5;                /* PA5 five-way ladder, external 100K pull-up */
     HAL_GPIO_Init(GPIOA, &pin);
 
     analog_adc.Instance = ADC1;
     analog_adc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV8;
     analog_adc.Init.Resolution = ADC_RESOLUTION_12B;
+    /* One channel per conversion, EOC per conversion. Scanning three ranks and
+     * polling with ADC_EOC_SEQ_CONV only ever produced the last rank and then
+     * timed out, which killed the five-way keys entirely. */
+    /* Fixed three-rank sequence programmed once at init. The channel must not
+     * be switched at run time: re-configuring a rank while the converter is
+     * enabled left the ADC converting the previous channel, which made the key
+     * ladder read the battery pin (a constant ~0.2 V). */
     analog_adc.Init.ScanConvMode = ADC_SCAN_ENABLE;
-    analog_adc.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+    analog_adc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
     analog_adc.Init.NbrOfConversion = 3u;
     analog_adc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
     analog_adc.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DR;
     analog_adc.Init.Overrun = ADC_OVR_DATA_PRESERVED;
     if (HAL_ADC_Init(&analog_adc) != HAL_OK) return false;
 
+    /* A default rank keeps the ADC in a valid state; every read reconfigures
+     * the channel it needs. */
     ADC_ChannelConfTypeDef ch = {0};
-    ch.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
+    ch.SamplingTime = ADC_SAMPLETIME_32CYCLES_5;
     ch.SingleDiff = ADC_SINGLE_ENDED;
     ch.OffsetNumber = ADC_OFFSET_NONE;
-
-    ch.Channel = BOARD_VBAT_ADC_CHANNEL;
+    /* HAL passes Channel straight to LL, which decodes bits 26..30. A plain
+     * decimal (4/3/19) decodes to channel 0, so all three ranks silently
+     * converted PA0_C and every reading was the same floating ~0.2 V. */
+    ch.Channel = __LL_ADC_DECIMAL_NB_TO_CHANNEL(BOARD_VBAT_ADC_CHANNEL);
     ch.Rank = ADC_REGULAR_RANK_1;
     if (HAL_ADC_ConfigChannel(&analog_adc, &ch) != HAL_OK) return false;
-    ch.Channel = BOARD_ESTOP_ADC_CHANNEL;
+    ch.Channel = __LL_ADC_DECIMAL_NB_TO_CHANNEL(BOARD_ESTOP_ADC_CHANNEL);
     ch.Rank = ADC_REGULAR_RANK_2;
     if (HAL_ADC_ConfigChannel(&analog_adc, &ch) != HAL_OK) return false;
-    ch.Channel = BOARD_KEY_ADC_CHANNEL;
+    ch.Channel = __LL_ADC_DECIMAL_NB_TO_CHANNEL(BOARD_KEY_ADC_CHANNEL);
     ch.Rank = ADC_REGULAR_RANK_3;
     if (HAL_ADC_ConfigChannel(&analog_adc, &ch) != HAL_OK) return false;
 
     return HAL_ADCEx_Calibration_Start(&analog_adc, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED) == HAL_OK;
 }
 
-static bool analog_scan(uint16_t *vbat, uint16_t *contact, uint16_t *key)
+/* One scan of the fixed three-rank sequence: battery, e-stop contact, key
+ * ladder (ranks 1..3, programmed once in board_analog_init). The results are
+ * cached so the three getters share one conversion set per control tick. */
+static uint16_t analog_cache[3];
+static bool analog_cache_ok;
+
+void board_analog_refresh(void)
 {
-    if (HAL_ADC_Start(&analog_adc) != HAL_OK) return false;
+    analog_cache_ok = false;
+    HAL_StatusTypeDef started = HAL_ADC_Start(&analog_adc);
+    if (started == HAL_BUSY) {          /* recover a stale transaction */
+        (void)HAL_ADC_Stop(&analog_adc);
+        started = HAL_ADC_Start(&analog_adc);
+    }
+    if (started != HAL_OK) return;
+
     bool ok = true;
-    const uint32_t timeout = 2u;
     for (unsigned i = 0; i < 3u; ++i) {
-        if (HAL_ADC_PollForConversion(&analog_adc, timeout) != HAL_OK) { ok = false; break; }
-        const uint16_t value = (uint16_t)HAL_ADC_GetValue(&analog_adc);
-        if (i == 0u && vbat != NULL) *vbat = value;
-        if (i == 1u && contact != NULL) *contact = value;
-        if (i == 2u && key != NULL) *key = value;
+        if (HAL_ADC_PollForConversion(&analog_adc, 2u) != HAL_OK) { ok = false; break; }
+        analog_cache[i] = (uint16_t)HAL_ADC_GetValue(&analog_adc);
     }
     (void)HAL_ADC_Stop(&analog_adc);
-    return ok;
+    analog_cache_ok = ok;
 }
 
-bool board_analog_key(uint16_t *millivolts)
+bool board_analog_key(uint16_t *raw_counts)
 {
-    uint16_t raw = 0u;
-    if (millivolts == NULL || !analog_scan(NULL, NULL, &raw)) return false;
-    *millivolts = (uint16_t)(((uint32_t)raw * BOARD_KEY_ADC_VREF_MV +
-                              BOARD_KEY_ADC_FULL_SCALE / 2u) / BOARD_KEY_ADC_FULL_SCALE);
+    if (raw_counts == NULL || !analog_cache_ok) return false;
+    *raw_counts = analog_cache[2];   /* raw 12-bit counts, official thresholds */
     return true;
 }
 
 bool board_analog_battery(Reading *out)
 {
-    uint16_t raw = 0u;
     if (out == NULL) return false;
-    if (!CHEN_FEATURE_BATTERY_ADC || !analog_scan(&raw, NULL, NULL)) {
+    if (!CHEN_FEATURE_BATTERY_ADC || !analog_cache_ok) {
         *out = (Reading){0, HAL_GetTick(), DATA_ABSENT, false};
         return false;
     }
-    *out = (Reading){BOARD_VBAT_MV(raw), HAL_GetTick(), DATA_UNCALIBRATED, raw != 0u};
+    *out = (Reading){BOARD_VBAT_MV(analog_cache[0]), HAL_GetTick(), DATA_UNCALIBRATED,
+                     analog_cache[0] != 0u};
     return true;
 }
 
 bool board_analog_estop(Reading *out)
 {
-    uint16_t raw = 0u;
     if (out == NULL) return false;
-    if (!analog_scan(NULL, &raw, NULL)) {
+    if (!analog_cache_ok) {
         *out = (Reading){0, HAL_GetTick(), DATA_INVALID, false};
         return false;
     }
     /* The contact divider is not documented yet, so report the pin voltage and
      * keep the uncalibrated tag. */
-    *out = (Reading){(int32_t)(((uint32_t)raw * BOARD_KEY_ADC_VREF_MV) /
+    *out = (Reading){(int32_t)(((uint32_t)analog_cache[1] * BOARD_KEY_ADC_VREF_MV) /
                                BOARD_KEY_ADC_FULL_SCALE),
                      HAL_GetTick(), DATA_UNCALIBRATED, true};
     return true;

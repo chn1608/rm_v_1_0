@@ -28,6 +28,10 @@
 | 电池电压 | PC4 | ADC1_INP4 | L2 | 主板分压 11:1 | 未标定 |
 | 急停/触点电压 | PA6 | ADC1_INP3 | L2 | 旧 GPIO 表 | 分压未定，标记未标定 |
 | 固定电源脚 | PC13/PC14/PC15 | GPIO 输出 | L0 | 旧方案 | 上电即拉低 |
+| CAN1 RX | PD0 | FDCAN1_RX AF9 | L0 | 官方 DM-MC02 例程 | 板载收发器，接 PC 用 |
+| CAN1 TX | PD1 | FDCAN1_TX AF9 | L0 | 同上 | 1 Mbit/s |
+| CAN2 RX/TX | PB5/PB6 | FDCAN2 | L2 | 官方原理图 | 预留，未使用 |
+| CAN3 RX/TX | PD12/PD13 | FDCAN3 | L2 | 官方原理图 | 预留，未使用 |
 
 ## 外设与中断
 
@@ -63,5 +67,5 @@
 | 定时器 | TIM1/2/6 | TIM3/4/5/8/15/16/17 可用 | 双编码器 |
 | SPI | 1 / 4 | SPI2/3/4/5/6 | 可扩展 |
 | I²C | 0 / 4 | I2C1..4 | ≥1 组 |
-| FDCAN | 0 / 2 | FDCAN1/2 | 尽量保留 |
+| FDCAN | 1 / 3 | FDCAN1 已用，FDCAN2/3 空闲 | 预留电机总线 |
 | GPIO 空闲 | — | PA4/PA7/PA8/PA11..PA14、PB4..PB9、PE0..PE6 等 | 4–8 个 |

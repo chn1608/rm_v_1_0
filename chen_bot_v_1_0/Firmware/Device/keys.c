@@ -1,42 +1,42 @@
 #include "keys.h"
 #include "board_config.h"
 
-#define RUNG_COUNT 5u
-
-Key key_classify_mv(uint16_t mv)
+/* Windows copied from the official example; see keys.h for the source path. */
+Key key_classify_raw(uint16_t raw)
 {
-    static const uint16_t rung[RUNG_COUNT] = {0u, 660u, 1320u, 1980u, 2640u};
-
-    if (mv > BOARD_KEY_ADC_VREF_MV) return KEY_UNKNOWN;  /* above the rail */
-    if (mv >= BOARD_KEY_DETECT_MV) return KEY_NONE;      /* released */
-
-    unsigned best = 0u;
-    unsigned best_distance = 0xFFFFu;
-    for (unsigned i = 0; i < RUNG_COUNT; ++i) {
-        const unsigned distance = mv > rung[i] ? (unsigned)(mv - rung[i])
-                                               : (unsigned)(rung[i] - mv);
-        if (distance < best_distance) {
-            best_distance = distance;
-            best = i;
-        }
-    }
-    /* Rung order is centre, left, right, up, down. */
-    return (Key)(best + (unsigned)KEY_CENTER);
+    if (raw <= BOARD_KEY_WIN_CENTER_MAX) return KEY_CENTER;
+    if (raw >= BOARD_KEY_WIN_RIGHT_MIN && raw <= BOARD_KEY_WIN_RIGHT_MAX) return KEY_RIGHT;
+    if (raw >= BOARD_KEY_WIN_LEFT_MIN && raw <= BOARD_KEY_WIN_LEFT_MAX) return KEY_LEFT;
+    if (raw >= BOARD_KEY_WIN_UP_MIN && raw <= BOARD_KEY_WIN_UP_MAX) return KEY_UP;
+    if (raw >= BOARD_KEY_WIN_DOWN_MIN && raw <= BOARD_KEY_WIN_DOWN_MAX) return KEY_DOWN;
+    return KEY_NONE;
 }
 
-bool key_update(KeyFilter *filter, Key sample, Key *changed_to)
+bool key_update(KeyFilter *filter, Key sample, uint32_t now_ms, Key *changed_to)
 {
     if (sample == KEY_UNKNOWN) {
-        filter->repeats = 0u;
+        filter->candidate = KEY_UNKNOWN;
+        filter->candidate_since = now_ms;
         return false;
     }
+
     if (sample != filter->candidate) {
         filter->candidate = sample;
-        filter->repeats = 0u;
+        filter->candidate_since = now_ms;
+        return false;
     }
-    if (filter->repeats < 3u) ++filter->repeats;
-    if (filter->repeats < 3u || sample == filter->stable) return false;
+
+    /* The level has to survive the whole debounce window; the RC ramp after a
+     * release only lingers on an intermediate rung for a few milliseconds. */
+    if (now_ms - filter->candidate_since < CHEN_KEY_STABLE_MS) return false;
+
+    if (filter->last_event_ms != 0u && now_ms - filter->last_event_ms < CHEN_KEY_BLANK_MS)
+        return false;
+
+    if (sample == filter->stable) return false;
+
     filter->stable = sample;
+    filter->last_event_ms = now_ms;
     *changed_to = sample;
     return true;
 }

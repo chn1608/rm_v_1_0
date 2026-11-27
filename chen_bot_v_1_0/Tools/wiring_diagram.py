@@ -90,7 +90,7 @@ def main():
     wire(d, [(820, 210), (820, 530), (860, 530)], POWER)
 
     # ------------------------------------------------ control row
-    box(d, 60, 640, 300, 130, "PC USB-TTL", ["TX→PA10   RX←PA9", "GND 共地  115200 8N1"], edge=SIGNAL)
+    box(d, 60, 620, 320, 160, "达妙 USB2CANFD", ["CAN_H ↔ PD1  CAN_L ↔ PD0", "USB 接电脑  1 Mbit/s 经典帧", "两端 120Ω 终端按需"], edge=SIGNAL)
     box(d, 60, 800, 300, 130, "ST-Link/V2", ["SWDIO↔PA13  SWCLK↔PA14", "3V3 仅参考  GND"], edge=SIGNAL)
     box(d, 60, 960, 300, 140, "ATK-BLE02", ["PE7←TXD   PE8→RXD", "LINK→PD14  STA→PD15", "5 V / GND  暂定"], edge=NOTE)
 
@@ -115,9 +115,9 @@ def main():
         "10 KEY→PA5（五向键梯形电阻）",
     ], edge=SIGNAL)
 
-    wire(d, [(360, 705), (880, 705)], SIGNAL, "USART1")
-    dot(d, 360, 705, SIGNAL)
-    dot(d, 880, 705, SIGNAL)
+    wire(d, [(380, 700), (880, 700)], SIGNAL, "CAN1 H/L")
+    dot(d, 380, 700, SIGNAL)
+    dot(d, 880, 700, SIGNAL)
     wire(d, [(360, 865), (880, 865)], SIGNAL, "SWD")
     dot(d, 360, 865, SIGNAL)
     dot(d, 880, 865, SIGNAL)
@@ -167,10 +167,10 @@ def main():
     d.rounded_rectangle([60, 1480, 2220, 1536], radius=8, fill=(255, 250, 235), outline=NOTE, width=2)
     d.text((78, 1490),
            "注意：三路降压模块的输入电压与电流能力尚未实测，上电前先断开电机与舵机单独核对 5 V / 7.4 V 轨；"
-           "全部地必须共地，动力地与信号地单点汇合。",
+           "全部地必须共地，动力地与信号地单点汇合；CAN 总线两端 120Ω 终端，支线不超过 0.3 m。",
            font=F_SMALL, fill=NOTE)
     d.text((78, 1514),
-           "TB6612 真值表：STBY=0 关断；IN1=IN2 为制动；PWM=0 且 IN1=IN2=0 为滑行。软件按“0 输出=滑行、STBY 关断”实现。",
+           "CAN：MCU→PC 0x601，PC→MCU 0x600，每帧 7 字节有效载荷；PC 端 python-can 选 slcan 或 gs_usb 固件。",
            font=F_SMALL, fill=NOTE)
 
     OUT.mkdir(parents=True, exist_ok=True)

@@ -42,6 +42,10 @@ static struct {
     ServoCtrl servo;
     Hmi hmi;
     KeyFilter keys;
+    /* Debounced key events travel from the 5 ms control task to the HMI task
+     * through this tiny ring, so rendering jitter cannot change debounce timing. */
+    volatile Key key_events[4];
+    volatile uint8_t key_head, key_tail;
     bool panel_ready;
     bool backlight;
 
@@ -167,12 +171,36 @@ static SafetyInputs gather_inputs(uint32_t now)
 
 static void control_step(uint32_t now)
 {
+    board_analog_refresh();
     Snapshot snap = app.snapshot;
     snap.now_ms = now;
     snap.uptime_s = now / 1000u;
     snap.battery_mv = (Reading){0, now, DATA_ABSENT, false};
     if (app.devices.voltage != NULL) {
         (void)app.devices.voltage(app.devices.context, 0u, &snap.battery_mv);
+    }
+
+    /* This task owns the ADC. Sampling the key ladder and the e-stop contact
+     * here (and publishing them) keeps the converter single-owner; reading it
+     * from the HMI task as well corrupted the channel selection. */
+    uint16_t key_raw = 0u;
+    snap.key_valid = board_analog_key(&key_raw);
+    snap.key_raw = key_raw;
+    if (snap.key_valid) {
+        Key event = KEY_NONE;
+        if (key_update(&app.keys, key_classify_raw(key_raw), now, &event) &&
+            event >= KEY_CENTER && event <= KEY_DOWN) {
+            const uint8_t next = (uint8_t)((app.key_head + 1u) % 4u);
+            taskENTER_CRITICAL();
+            if (next != app.key_tail) {
+                app.key_events[app.key_head] = event;
+                app.key_head = next;
+            }
+            taskEXIT_CRITICAL();
+        }
+    }
+    if (app.devices.voltage != NULL) {
+        (void)app.devices.voltage(app.devices.context, 1u, &snap.estop_mv);
     }
 
     const SafetyInputs inputs = gather_inputs(now);
@@ -300,12 +328,6 @@ static bool panel_blit(void *context, uint16_t x, uint16_t y, uint16_t w, uint16
     return smoke_panel_blit565(x, y, w, h, pixels);
 }
 
-static void on_key(Key key)
-{
-    if (key < KEY_CENTER || key > KEY_DOWN) return;
-    hmi_handle_key(&app.hmi, key);
-}
-
 static void hmi_task(void *argument)
 {
     (void)argument;
@@ -318,12 +340,15 @@ static void hmi_task(void *argument)
             if (app.panel_ready) hmi_init(&app.hmi);
         }
         if (app.panel_ready) {
-            Key sample = KEY_UNKNOWN;
-            if (app.devices.keys != NULL) {
-                (void)app.devices.keys(app.devices.context, &sample);
+            /* Drain the debounced key events produced by the control task. */
+            while (app.key_tail != app.key_head) {
+                Key event;
+                taskENTER_CRITICAL();
+                event = app.key_events[app.key_tail];
+                app.key_tail = (uint8_t)((app.key_tail + 1u) % 4u);
+                taskEXIT_CRITICAL();
+                hmi_handle_key(&app.hmi, event);
             }
-            Key event;
-            if (key_update(&app.keys, sample, &event)) on_key(event);
 
             HmiSnapshot hmi_snapshot;
             fill_hmi(&hmi_snapshot);
@@ -373,10 +398,15 @@ static void diag_task(void *argument)
 
 /* --------------------------------------------------------------------- init */
 
-bool app_init(const Devices *devices, bool can_arm)
+bool app_init(const Devices *devices, bool can_arm, bool panel_ready)
 {
     memset(&app, 0, sizeof(app));
     app.devices = *devices;
+    app.panel_ready = panel_ready;
+    if (panel_ready) {
+        hmi_init(&app.hmi);
+        app.backlight = true;
+    }
     params_defaults(&app.params);
     safety_begin(&app.safety);
 
@@ -392,9 +422,14 @@ bool app_init(const Devices *devices, bool can_arm)
                           .center_us = BOARD_SERVO_CENTER_US, .max_us = BOARD_SERVO_MAX_US};
     (void)servo_init(&app.servo, &cal, (uint16_t)app.params.value[PARAM_SERVO_SLEW_US]);
 
+#if CHEN_FEATURE_PC_CAN
+    app.pc = board_can_transport();
+    app.pc_ready = board_can_ready();
+#else
     app.pc = board_pc_transport();
-    app.ble = board_ble_transport();
     app.pc_ready = board_pc_ready();
+#endif
+    app.ble = board_ble_transport();
     app.ble_ready = board_ble_ready();
     debug_init(&app.debug, &app.params, &app.safety, &app.snapshot);
 
@@ -412,13 +447,19 @@ void app_start(void)
     app.control_handle = xTaskCreateStatic(control_task, "control", CHEN_STACK_CONTROL, NULL,
                                            CHEN_PRIO_CONTROL, app.control_stack,
                                            &app.control_tcb);
-    (void)xTaskCreateStatic(comm_task, "comm", CHEN_STACK_COMM, NULL, CHEN_PRIO_COMM,
-                            app.comm_stack, &app.comm_tcb);
-    (void)xTaskCreateStatic(hmi_task, "hmi", CHEN_STACK_HMI, NULL, CHEN_PRIO_HMI,
-                            app.hmi_stack, &app.hmi_tcb);
-    (void)xTaskCreateStatic(telemetry_task, "telemetry", CHEN_STACK_TELEMETRY, NULL,
-                            CHEN_PRIO_TELEMETRY, app.telemetry_stack, &app.telemetry_tcb);
-    (void)xTaskCreateStatic(diag_task, "diag", CHEN_STACK_DIAG, NULL, CHEN_PRIO_DIAG,
-                            app.diag_stack, &app.diag_tcb);
-    if (app.control_handle == NULL) board_fatal();
+    TaskHandle_t comm = xTaskCreateStatic(comm_task, "comm", CHEN_STACK_COMM, NULL,
+                                          CHEN_PRIO_COMM, app.comm_stack, &app.comm_tcb);
+    TaskHandle_t hmi = xTaskCreateStatic(hmi_task, "hmi", CHEN_STACK_HMI, NULL,
+                                         CHEN_PRIO_HMI, app.hmi_stack, &app.hmi_tcb);
+    TaskHandle_t telemetry = xTaskCreateStatic(telemetry_task, "telemetry",
+                                               CHEN_STACK_TELEMETRY, NULL, CHEN_PRIO_TELEMETRY,
+                                               app.telemetry_stack, &app.telemetry_tcb);
+    TaskHandle_t diag = xTaskCreateStatic(diag_task, "diag", CHEN_STACK_DIAG, NULL,
+                                          CHEN_PRIO_DIAG, app.diag_stack, &app.diag_tcb);
+    /* A missing task means the stack array or TCB was rejected; starting with a
+     * partial system is worse than stopping here. */
+    if (app.control_handle == NULL || comm == NULL || hmi == NULL ||
+        telemetry == NULL || diag == NULL) {
+        board_fatal();
+    }
 }

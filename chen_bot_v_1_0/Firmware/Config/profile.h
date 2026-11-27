@@ -1,4 +1,4 @@
-#ifndef CHEN_CONFIG_PROFILE_H
+﻿#ifndef CHEN_CONFIG_PROFILE_H
 #define CHEN_CONFIG_PROFILE_H
 
 /* Build profiles. The profile chooses which devices are linked in, which
@@ -38,11 +38,11 @@
 #define CHEN_BLE_BAUD 115200u
 
 /* Stack sizes in words (4 bytes each). */
-#define CHEN_STACK_CONTROL 384u
-#define CHEN_STACK_COMM 320u
-#define CHEN_STACK_HMI 512u
-#define CHEN_STACK_TELEMETRY 256u
-#define CHEN_STACK_DIAG 256u
+#define CHEN_STACK_CONTROL 512u
+#define CHEN_STACK_COMM 512u
+#define CHEN_STACK_HMI 1024u
+#define CHEN_STACK_TELEMETRY 384u
+#define CHEN_STACK_DIAG 384u
 
 /* Priorities: numeric value is the FreeRTOS priority, higher runs first.
  * Safety/control outranks communication; HMI is deliberately low. */

@@ -87,3 +87,38 @@ NAK 原因码：1 拒绝、2 超范围、3 未知命令/参数、4 长度错误�
 
 改动帧格式或 CRC 必须同步更新：本文档、`Protocol/vectors.txt`、PC 的 Python 解析、
 Android 的 Kotlin 解析，以及 `Firmware/Test/test_core.c` 中的向量断言。
+
+## CAN 承载（v1.1，替代 USART1 USB 转串口）
+
+PC 状态链路改用达妙 USB2CANFD 模块接在 MC02 的 CAN1（PD0/PD1，板载收发器）。
+应用层帧格式不变，只改为经 CAN 分段传输，因此 PC 与 Android 的解析代码可复用。
+
+| 项目 | 值 |
+|---|---|
+| 总线 | CAN1，经典 CAN 2.0，1 Mbit/s |
+| MCU→PC 标识符 | `0x601`（标准 11 位） |
+| PC→MCU 标识符 | `0x600` |
+| 每帧载荷 | `data[0]` = 段序号（从 0 起），`data[1..7]` = 最多 7 字节应用数据 |
+| 重组 | 收到前 5 字节后由应用帧 byte4 得到总长 len+9，凑满即交付 |
+| 丢段处理 | 序号不连续则丢弃本次重组并计数（board_can_errors()） |
+
+一条 36 字节状态帧需要 6 个 CAN 帧；1 Mbit/s 下约 0.8 ms，占 50 ms 周期的 1.6%。
+
+实现位置：
+
+- MCU：`Firmware/BSP/can_link.c`（FDCAN1，滤波器精确匹配 0x600，RX FIFO0 中断只搬运）
+- PC：`soft1/development/PC_Debug/can_link.py`（CanLink，含分段/重组与 FakeBus 测试替身）
+
+模块固件模式（官方资料 `模块/通信模块/USB2CANFD`）：
+
+| 模式 | PC 侧接口 | 说明 |
+|---|---|---|
+| SLCAN 固件 | python-can `interface="slcan"`，串口 COMx | 免驱动，Windows 最省事 |
+| gs_usb 固件 | python-can `interface="gs_usb"`，channel 0 | 需安装达妙 gs_usb 驱动 |
+| 出厂固件 | 需达妙上位机协议 | 本工程不使用 |
+
+PC 端示例：
+
+```
+python monitor.py --can --can-interface slcan --can-channel COM3 --can-bitrate 1000000
+```
