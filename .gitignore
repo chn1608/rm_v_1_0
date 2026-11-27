@@ -1,0 +1,16 @@
+# 本地只读输入及独立参考仓库
+/hard1/
+/soft1/soft_lib_1/
+/soft1/soft_up_1.0/
+/2027*.pdf
+
+/build/
+**/build/
+**/.gradle/
+**/__pycache__/
+*.py[cod]
+*.uvguix.*
+*.uvoptx
+local.properties
+.env
+.vscode/
