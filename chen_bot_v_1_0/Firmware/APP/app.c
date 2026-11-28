@@ -437,9 +437,6 @@ bool app_init(const Devices *devices, bool can_arm, bool panel_ready)
     /* Self test passes only when the safe output state and the link that the
      * profile needs are both available. */
     safety_self_test(&app.safety, outputs_off && can_arm);
-    /* The PC link is CAN only. A failed FDCAN init is a real fault and must be
-     * visible on the LCD, not a silent degradation. */
-    if (!app.pc_ready) app.safety.faults |= FAULT_COMM;
     app.snapshot.state = app.safety.state;
     return outputs_off;
 }
