@@ -1,206 +1,189 @@
-"""Draw the chen_bot_v_1_0 wiring diagram (PNG + PDF).
+"""chen_bot_v_1_0 wiring diagram with a three-level colour code.
 
-The diagram is generated from the same constants that drive the firmware
-(Firmware/Config/board_config.h), so a pin change is a one-line edit here too.
-Values that are still unverified are marked 鏆傚畾/寰呮爣瀹?instead of being drawn as
-if they were confirmed.
+Green  = confirmed and usable (verified on the real board or in the official docs)
+Yellow = pending / questionable / not yet fitted
+Red    = serious problem that must be fixed before power-on
+
+Every signal is named by its MCU pin (PAx/PBx/PCx/PDx/PEx); connector positions
+are never written as "P7.4" style references.
 """
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 OUT = Path(__file__).resolve().parents[1] / "docs"
-W, H = 2300, 1560
+W, H = 2400, 1820
 
-FONT_CANDIDATES = [
-    r"C:\Windows\Fonts\msyh.ttc",
-    r"C:\Windows\Fonts\msyhbd.ttc",
-    r"C:\Windows\Fonts\simhei.ttf",
-]
+GREEN = (24, 120, 60)
+YELLOW = (196, 140, 20)
+RED = (198, 32, 32)
+POWER = (176, 42, 42)
+SIGNAL = (30, 78, 150)
+EDGE = (70, 70, 70)
+TEXT = (25, 25, 25)
 
 
 def font(size, bold=False):
-    for path in FONT_CANDIDATES:
-        try:
-            return ImageFont.truetype(path, size, index=0)
-        except OSError:
-            continue
-    return ImageFont.load_default()
+    return ImageFont.truetype(rf"C:\Windows\Fonts\{'msyhbd.ttc' if bold else 'msyh.ttc'}", size)
 
 
-F_TITLE = font(46)
-F_SUB = font(26)
-F_BOX = font(28)
-F_LINE = font(22)
-F_SMALL = font(19)
-
-INK = (28, 32, 38)
-GRID = (150, 158, 168)
-POWER = (176, 42, 42)
-SIGNAL = (30, 78, 150)
-GROUND = (24, 110, 70)
-NOTE = (120, 92, 20)
-BOX = (247, 249, 252)
-BOX_EDGE = (90, 100, 112)
-ACCENT = (232, 238, 246)
+F_TITLE = font(34, True)
+F_BOX = font(19, True)
+F_LINE = font(16)
+F_SMALL = font(15)
+F_TABLE = font(16)
 
 
-def box(draw, x, y, w, h, title, lines, edge=BOX_EDGE, fill=BOX):
-    draw.rounded_rectangle([x, y, x + w, y + h], radius=14, fill=fill, outline=edge, width=3)
-    draw.text((x + 16, y + 10), title, font=F_BOX, fill=INK)
-    ty = y + 52
-    for line in lines:
-        draw.text((x + 16, ty), line, font=F_LINE, fill=INK)
-        ty += 27
-    return (x, y, w, h)
+def box(d, x, y, w, h, title, lines, edge):
+    d.rounded_rectangle([x, y, x + w, y + h], radius=10, outline=edge, width=3, fill="white")
+    d.text((x + 14, y + 9), title, font=F_BOX, fill=TEXT)
+    for i, line in enumerate(lines):
+        d.text((x + 14, y + 36 + i * 22), line, font=F_LINE, fill=TEXT)
 
 
-def dot(draw, x, y, color):
-    draw.ellipse([x - 5, y - 5, x + 5, y + 5], fill=color)
-
-
-def wire(draw, points, color, label=None, label_at=0.5):
-    draw.line(points, fill=color, width=4, joint="curve")
-    if label:
-        (x1, y1), (x2, y2) = points[0], points[1]
-        lx = int(x1 + (x2 - x1) * label_at)
-        ly = int(y1 + (y2 - y1) * label_at)
-        draw.text((lx + 6, ly - 26), label, font=F_SMALL, fill=color)
+def arrow(d, x0, y0, x1, y1, color):
+    d.line([(x0, y0), (x1, y1)], fill=color, width=3)
+    d.ellipse([x1 - 5, y1 - 5, x1 + 5, y1 + 5], fill=color)
 
 
 def main():
-    img = Image.new("RGB", (W, H), (255, 255, 255))
+    img = Image.new("RGB", (W, H), "white")
     d = ImageDraw.Draw(img)
 
-    d.text((60, 36), "chen_bot_v_1_0  接线图（DM-MC-Board02 / STM32H723VGT6）", font=F_TITLE, fill=INK)
-    d.text((60, 96), "红线=动力/电源　蓝线=信号　绿线=地　黄色边框=暂定或未验证项", font=F_SUB, fill=(90, 96, 104))
+    d.text((40, 22), "chen_bot_v_1_0 接线图（DM-MC-Board02 / STM32H723VGT6）",
+           font=F_TITLE, fill=TEXT)
+    d.text((44, 68), "全部引脚以 MCU 引脚名标注　|　线色：红=电源 蓝=信号 黑=地",
+           font=F_SMALL, fill=(90, 90, 90))
 
-    # ------------------------------------------------ power chain (top row)
-    box(d, 60, 150, 240, 120, "4S 锂电池", ["3300 mAh 30C", "14.8 V 标称"], edge=POWER)
-    box(d, 330, 150, 210, 120, "总开关", ["+ 保险", "规格待定"], edge=POWER)
-    box(d, 570, 150, 210, 120, "分电板", ["集中分电", "强弱电分离"], edge=POWER)
-    box(d, 860, 140, 250, 140, "LM2596S", ["5 V  继电器/ULN2003", "暂定，未实测"], edge=NOTE)
-    box(d, 860, 300, 250, 140, "DFR0831", ["5 V  TB6612 VM", "暂定，未实测"], edge=NOTE)
-    box(d, 860, 460, 250, 140, "UBEC-8A", ["7.4 V  舵机", "暂定，未实测"], edge=NOTE)
+    # 图例
+    lx = 44
+    for label, color in (("绿框：已确认可用", GREEN), ("黄框：待定/有问题", YELLOW), ("红框：严重问题", RED)):
+        d.rounded_rectangle([lx, 96, lx + 26, 122], radius=5, outline=color, width=3)
+        d.text((lx + 34, 99), label, font=F_SMALL, fill=color)
+        lx += 230
 
-    wire(d, [(300, 210), (330, 210)], POWER)
-    wire(d, [(540, 210), (570, 210)], POWER)
-    wire(d, [(780, 210), (820, 210), (820, 210), (860, 210)], POWER)
-    wire(d, [(820, 210), (820, 370), (860, 370)], POWER)
-    wire(d, [(820, 210), (820, 530), (860, 530)], POWER)
+    # ------------------------------------------------------------ 电源链
+    px = 40
+    box(d, px, 140, 330, 84, "4S 锂电池（已确认）",
+        ["格氏 ACE 3300mAh 30C", "14.8V，满电 16.8V，XT60"], GREEN)
+    box(d, px, 264, 330, 74, "VIFLY Shortsaver2（已确认）", ["XT30/XT60 防短路保护"], GREEN)
+    box(d, px, 378, 330, 96, "分电 XT60 → 2×XT30（待定）",
+        ["清单里没有分电板", "需自制 XT60 一拖二线束"], YELLOW)
+    box(d, px, 514, 330, 104, "UBEC-8A（待定）",
+        ["输出 5V/6V/7.4V 跳线", "切到 5V 才能接主板", "舵机电压需同档"], YELLOW)
+    box(d, px, 658, 330, 104, "12V 降压（严重问题）",
+        ["TB6612 VM 绝对最大 15V", "4S 满电 16.8V 会超压", "必须补一个 12V 降压"], RED)
 
-    # ------------------------------------------------ control row
-    box(d, 60, 590, 350, 200, "达妙 USB2CAN", ["Type-C → PC（供电+通信）", "CAN 座: H→第4脚  L→第3脚", "UART 座: GND→第2脚 (TX/RX 不用)", "120Ω 默认 ON"], edge=SIGNAL)
-    box(d, 60, 800, 300, 130, "ST-Link/V2", ["SWDIO↔PA13  SWCLK↔PA14", "3V3 仅参考  GND"], edge=SIGNAL)
-    box(d, 60, 960, 300, 140, "ATK-BLE02", ["PE7←TXD   PE8→RXD", "LINK→PD14  STA→PD15", "5 V / GND  暂定"], edge=NOTE)
+    arrow(d, 205, 224, 205, 264, POWER)
+    arrow(d, 205, 338, 205, 378, POWER)
+    arrow(d, 205, 474, 205, 514, POWER)
+    arrow(d, 205, 618, 205, 658, POWER)
 
-    mcu_lines = [
-        "STM32H723VGT6  LQFP100",
-        "5 V 供电（USB-C 或 VIN）",
-        "SWD: PA13 / PA14",
-        "USART1: PA9(TX)  PA10(RX)",
-        "UART7: PE7(RX)  PE8(TX)",
-        "SPI1: PB3(SCK)  PD7(MOSI)",
-        "ADC1: PC4 电池  PA5 按键  PA6 触点",
-        "PWM: PA0 / PA2 电机  PE9 舵机",
-        "GPIO: PE13 PE14 PD8 PD9 PB0 PA3 PA1",
-        "CAN1: PD0(RX) PD1(TX)  FDCAN1 AF9",
+    # ------------------------------------------------------------ 主控
+    box(d, 720, 330, 600, 470, "主控 DM-MC-Board02（已确认）",
+        ["供电：USB-C 5V（当前实测工作方式）",
+         "SWD：PA13 / PA14",
+         "CAN1：PD0(RX) / PD1(TX)",
+         "ADC：PA5 五向键 / PC4 电池 / PA6 急停",
+         "PWM：PA0(TIM2_CH1) / PA2(TIM2_CH3)",
+         "方向：PE13 PE14 PD8 PD9　STBY→PA1",
+         "舵机：PE9（TIM1_CH1）",
+         "SPI1：PB3 PD7 PE15 PD10 PB10 PB11",
+         "UART7：PE7 PE8 / PD14 PD15",
+         "预留编码器：PB4 PB5 / PB6 PB7"], GREEN)
+
+    arrow(d, 370, 566, 700, 566, POWER)
+    d.text((450, 540), "5V（USB-C 或 UBEC 5V）", font=F_SMALL, fill=POWER)
+    arrow(d, 370, 710, 660, 710, POWER)
+    d.line([(660, 710), (660, 916), (1180, 916), (1180, 940)], fill=POWER, width=3)
+    d.text((560, 690), "12V（降压后）", font=F_SMALL, fill=POWER)
+
+    # ------------------------------------------------------------ 右侧
+    right = [
+        ("DM_TFT-V1.1 240×280（已确认）",
+         ["CS←PE15　DC←PD10", "SCK←PB3　MOSI←PD7",
+          "BLK←PB10　RST←PB11", "KEY→PA5　5V/GND", "实物已验证：显示与按键可用"], 140, 160, GREEN),
+        ("达妙 USB2CAN（待定）",
+         ["CAN_H — PD1　CAN_L — PD0", "UART 座 GND → 主板 GND",
+          "适配器需 1Mbps/CAN2.0", "当前总线无应答，链路未通"], 370, 140, YELLOW),
+        ("ST-Link V2（已确认）",
+         ["SWDIO — PA13　SWCLK — PA14", "GND 必须接"], 570, 96, GREEN),
+        ("ATK-BLE02（待定，未装）",
+         ["TXD→PE7　RXD→PE8", "LINK→PD14　STA→PD15", "需 AT 指令与固件确认"], 726, 120, YELLOW),
     ]
-    box(d, 880, 600, 520, 380, "DM-MC-Board02 主控", mcu_lines, fill=ACCENT)
+    for title, lines, y, h, color in right:
+        box(d, 1520, y, 520, h, title, lines, color)
+        d.line([(1320, y + h / 2), (1520, y + h / 2)], fill=color, width=3)
+        d.ellipse([1315, y + h / 2 - 5, 1325, y + h / 2 + 5], fill=color)
 
-    box(d, 1700, 620, 520, 280, "DM_TFT-V1.1  240x280", [
-        "1 5V      2 GND      3 CS←PE15",
-        "4 SCK←PB3    5 MOSI←PD7",
-        "6 BLK←PB10   7 RST←PB11",
-        "8 DC←PD10    9 MISO 不用",
-        "10 KEY→PA5（五向键梯形电阻）",
-    ], edge=SIGNAL)
+    # ------------------------------------------------------------ 功率侧
+    box(d, 720, 940, 600, 180, "TB6612FNG 双通道驱动（待定）",
+        ["VM ← 12V　VCC ← 3V3　STBY ← PA1",
+         "PWMA←PA0　AIN1←PE13　AIN2←PE14",
+         "PWMB←PA2　BIN1←PD8　BIN2←PD9",
+         "A01/A02 左电机　B01/B02 右电机",
+         "带载/堵转/温升未验证"], YELLOW)
 
-    wire(d, [(410, 668), (880, 668)], SIGNAL, "CAN1 H/L")
-    dot(d, 410, 668, SIGNAL)
-    dot(d, 880, 668, SIGNAL)
-    # ADAPTER_GND: the CAN connector has no ground pin; the adapter's UART 3P
-    # carries GND and must be tied to the board ground (terminal pin 2).
-    wire(d, [(410, 742), (880, 742)], GROUND, "GND")
-    dot(d, 410, 742, GROUND)
-    dot(d, 880, 742, GROUND)
-    wire(d, [(360, 865), (880, 865)], SIGNAL, "SWD")
-    dot(d, 360, 865, SIGNAL)
-    dot(d, 880, 865, SIGNAL)
-    wire(d, [(360, 1010), (820, 1010), (820, 940), (880, 940)], SIGNAL, "UART7")
-    dot(d, 360, 1010, SIGNAL)
-    dot(d, 880, 940, SIGNAL)
-    wire(d, [(1400, 720), (1700, 720)], SIGNAL, "SPI1/KEY")
-    dot(d, 1400, 720, SIGNAL)
-    dot(d, 1700, 720, SIGNAL)
+    box(d, 40, 940, 420, 86, "左电机 TT + AB 编码器（待定）", ["A01 / A02 → 电机两端"], YELLOW)
+    box(d, 40, 1046, 420, 86, "右电机 TT + AB 编码器（待定）", ["B01 / B02 → 电机两端"], YELLOW)
+    arrow(d, 460, 983, 720, 983, POWER)
+    d.line([(460, 1089), (600, 1089), (600, 1035), (720, 1035)], fill=POWER, width=3)
 
-    # ------------------------------------------------ actuation row
-    box(d, 60, 1210, 280, 110, "左电机 1:48", ["AO1 / AO2", "编码器：未安装"], edge=POWER)
-    box(d, 60, 1340, 280, 110, "右电机 1:48", ["BO1 / BO2", "编码器：未安装"], edge=POWER)
+    box(d, 1440, 940, 600, 120, "LD-220MG 数字舵机（待定）",
+        ["信号 ← PE9（TIM1_CH1，50Hz）", "电源 ← UBEC（5V 档）　GND 共地", "行程/限位未标定"], YELLOW)
+    arrow(d, 390, 604, 390, 866, POWER)
+    d.line([(390, 866), (1700, 866), (1700, 1000), (1440, 1000)], fill=POWER, width=3)
+    d.text((420, 840), "UBEC 5V → 舵机（走主控下方，不穿框）", font=F_SMALL, fill=POWER)
 
-    box(d, 520, 1180, 450, 260, "TB6612FNG", [
-        "PWMA←PA0    PWMB←PA2",
-        "AIN1←PE13   AIN2←PE14",
-        "BIN1←PD8    BIN2←PD9",
-        "STBY←PA1    VCC=3V3",
-        "VM=5V(暂定)",
-    ], edge=POWER)
+    box(d, 1440, 1100, 600, 130, "编码器接线（待定，固件未启用）",
+        ["左：A→PB4(TIM3_CH1)　B→PB5(TIM3_CH2)",
+         "右：A→PB6(TIM4_CH1)　B→PB7(TIM4_CH2)",
+         "CHEN_FEATURE_ENCODER=0，引脚仅预留"], YELLOW)
 
-    box(d, 1030, 1180, 380, 200, "LD-220MG 舵机", [
-        "PWM←PE9 (TIM1_CH1)",
-        "电源：UBEC 7.4 V（暂定）",
-        "中位 1500 us，限位待标定",
-    ], edge=POWER)
+    box(d, 720, 1150, 600, 110, "急停与独立断能（待定）",
+        ["硬件急停 NC 回路尚未落地", "人工再使能未实现（HARDWARE_TODO）",
+         "软件侧 PA6 触点检测：CHEN_FEATURE_ESTOP_INPUT=0"], YELLOW)
 
-    box(d, 1470, 1160, 750, 290, "动力控制 K1 / K2", [
-        "K1 线圈 ←PB0 → ULN2003A → 5 V",
-        "K2 线圈 ←PA3 → ULN2003A → 5 V",
-        "触点串在动力正极（K1 = 总动力）",
-        "触点反馈未接线（FEATURE_RELAY_FEEDBACK=0）",
-    ], edge=POWER)
+    # ------------------------------------------------------------ 连接表
+    top = 1300
+    d.rounded_rectangle([40, top, W - 40, H - 24], radius=10, outline=EDGE, width=2, fill=(252, 252, 252))
+    d.text((60, top + 8), "接线表（绿=已确认 / 黄=待定 / 红=严重问题）", font=F_BOX, fill=TEXT)
 
-    wire(d, [(880, 980), (880, 1120), (740, 1120), (740, 1180)], SIGNAL, "PWM / 方向")
-    dot(d, 880, 980, SIGNAL)
-    dot(d, 740, 1180, SIGNAL)
-    wire(d, [(520, 1290), (340, 1290)], POWER, "AO1/AO2")
-    wire(d, [(520, 1395), (340, 1395)], POWER, "BO1/BO2")
-    wire(d, [(1200, 980), (1200, 1180)], SIGNAL, "PWM")
-    dot(d, 1200, 980, SIGNAL)
-    wire(d, [(1400, 940), (1440, 940), (1440, 1240), (1470, 1240)], SIGNAL, "PB0/PA3")
-    dot(d, 1400, 940, SIGNAL)
-
-    # ------------------------------------------------ notes
-    d.rounded_rectangle([60, 1480, 2220, 1536], radius=8, fill=(255, 250, 235), outline=NOTE, width=2)
-    d.text((78, 1490),
-           "注意：三路降压模块的输入电压与电流能力尚未实测，上电前先断开电机与舵机单独核对 5 V / 7.4 V 轨；"
-           "全部地必须共地，动力地与信号地单点汇合；CAN 总线两端 120Ω 终端，支线不超过 0.3 m。",
-           font=F_SMALL, fill=NOTE)
-    d.text((78, 1514),
-           "CAN：适配器 H→端子第4脚(CAN1_H) L→第3脚(CAN1_L) GND→第2脚(INGND)；CANH/CANL 由 PD1/PD0 经板载 U1 驱动，主板需 5V 供电。",
-           font=F_SMALL, fill=NOTE)
+    rows = [
+        (GREEN, "电源", "USB-C 5V → 主板（当前实测工作方式）；电池经 Shortsaver2 保护"),
+        (YELLOW, "电源", "分电需自制 XT60 一拖二；UBEC-8A 必须切 5V 档才能接主板"),
+        (RED, "电源", "TB6612 VM 只能接 12V（降压后）：4S 满电 16.8V 超过其 15V 绝对最大值"),
+        (GREEN, "地", "电池负、UBEC 负、TB6612 GND、主板 GND、舵机 GND、适配器 GND 单点汇合"),
+        (GREEN, "电机", "PWMA←PA0　AIN1←PE13　AIN2←PE14　PWMB←PA2　BIN1←PD8　BIN2←PD9　STBY←PA1　VCC←3V3"),
+        (YELLOW, "电机", "左电机 A01/A02、右电机 B01/B02 接 TB6612；带载与堵转电流未验证"),
+        (YELLOW, "舵机", "信号←PE9；电源←UBEC 5V；GND 共地；行程限位未标定"),
+        (GREEN, "液晶", "CS←PE15　DC←PD10　SCK←PB3　MOSI←PD7　BLK←PB10　RST←PB11　KEY→PA5　5V/GND"),
+        (YELLOW, "CAN", "CAN_H—PD1　CAN_L—PD0；适配器 UART GND→主板 GND；总线当前无 ACK"),
+        (GREEN, "调试", "SWDIO—PA13　SWCLK—PA14　GND→主板 GND"),
+        (YELLOW, "蓝牙", "TXD→PE7　RXD→PE8　LINK→PD14　STA→PD15（模块未装、AT 未确认）"),
+        (YELLOW, "编码器", "左 A→PB4　左 B→PB5　右 A→PB6　右 B→PB7（固件未启用）"),
+        (YELLOW, "急停", "硬件 NC 回路与人工再使能未落地；PA6 检测默认关闭"),
+        (GREEN, "充电", "格氏 iMars S60（2S–4S）接电池 XT60，充电时断开整车"),
+    ]
+    y = top + 40
+    for color, tag, line in rows:
+        d.rounded_rectangle([58, y + 1, 74, y + 17], radius=4, outline=color, width=2)
+        d.text((86, y), tag, font=F_TABLE, fill=(120, 60, 30))
+        d.text((168, y), line, font=F_TABLE, fill=TEXT)
+        y += 28
 
     OUT.mkdir(parents=True, exist_ok=True)
     png = OUT / "wiring_chen_bot_v1_0.png"
     pdf = OUT / "wiring_chen_bot_v1_0.pdf"
-    def save(image, path, fmt=None):
-        """Save, but survive a viewer holding the previous file open."""
-        try:
-            if fmt:
-                image.save(path, fmt, resolution=150.0)
-            else:
-                image.save(path)
-            return path
-        except PermissionError:
-            alt = path.with_name(path.stem + "_new" + path.suffix)
-            if fmt:
-                image.save(alt, fmt, resolution=150.0)
-            else:
-                image.save(alt)
-            print("locked, wrote", alt)
-            return alt
-
-    print(save(img, png))
-    print(save(img, pdf, "PDF"))
+    img.save(png)
+    try:
+        img.save(pdf, "PDF", resolution=150.0)
+    except PermissionError:
+        pdf = OUT / "wiring_chen_bot_v1_0_new.pdf"
+        img.save(pdf, "PDF", resolution=150.0)
+        print("locked, wrote", pdf)
+    print(png)
+    print(pdf)
 
 
 if __name__ == "__main__":
