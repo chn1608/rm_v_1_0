@@ -171,6 +171,7 @@ static SafetyInputs gather_inputs(uint32_t now)
 
 static void control_step(uint32_t now)
 {
+    board_can_poll();
     board_analog_refresh();
     Snapshot snap = app.snapshot;
     snap.now_ms = now;
@@ -369,7 +370,10 @@ static void telemetry_task(void *argument)
     (void)argument;
     TickType_t tick = xTaskGetTickCount();
     for (;;) {
-        if (app.pc_ready) {
+        /* Always attempt the broadcast: can_write() reports DEV_UNAVAILABLE when
+         * the controller is not running, so a not-ready link costs nothing and
+         * a ready one starts streaming immediately. */
+        if (app.pc.write != NULL) {
             Snapshot snap;
             app_snapshot(&snap);
             Frame frame = {0};
