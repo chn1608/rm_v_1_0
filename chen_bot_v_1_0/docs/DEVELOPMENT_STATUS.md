@@ -46,3 +46,28 @@
 - `Firmware/`（LCD_SMOKE 台架）保持不变，仍可独立构建与烧录。
 - 新框架按 V1.2 分层与命名重写，复用其已验证的协议 CRC、HMI 渲染与按键判据。
 - 两套工程互不引用，避免重构影响在用的台架固件。
+
+## 2026-11-28 更新
+
+| 范围 | 状态 | 证据 / 位置 |
+|---|---|---|
+| 五向键 | 完成并实物确认 | 官方 RAW 窗口（0–200 中 / 700–1000 右 / 1500–1800 左 / 2200–2500 上 / 2800–3500 下），40 ms 稳定窗 + 40 ms 屏蔽窗 |
+| ADC | 修复 | 通道改用编码字 `__LL_ADC_DECIMAL_NB_TO_CHANNEL`；三 rank 固定扫描 + 缓存 |
+| USART 链路 | 已删除 | `uart_link.c` 仅保留 UART7（BLE）；`CHEN_FEATURE_PC_DEBUG` 移除 |
+| FDCAN | 修复并增强 | 消息 RAM（Rx8/Tx8）、`FDCAN_IT_BUS_OFF` 自动重启、内部回环自检 `board_can_self_test_ok()` |
+| 链路故障可见 | 完成 | CAN 初始化失败 → `FAULT_COMM`，屏幕故障码显示 |
+| 主机测试 | 迁移 | 移到仓库 `Tests/test_core.c`，固件目录内不含任何测试代码 |
+| PC 上位机 | 完成 | `gui.py`（tkinter，单实例）、`monitor.py`、`usb2can_link.py`、`can_link.py` |
+| 接线图 | 重做 | `docs/wiring_chen_bot_v1_0.pdf`，绿/黄/红三级，全部使用 MCU 引脚名 |
+
+### 阻塞
+
+1. 实机联调时 ST-Link 与 USB2CAN 适配器均已断开，当前无法烧录/抓包。
+2. CAN 总线无 ACK：适配器需用官方上位机配置为 CAN2.0 + 1 Mbps 并「更新配置」。
+3. TB6612 供电超压（红框项）必须先补 12 V 降压。
+
+### 下一步
+
+1. 接回 ST-Link 烧录当前镜像，确认故障码为 0、回环自检通过。
+2. 适配器按官方说明书配置后复测总线。
+3. 硬件补齐 12 V 降压与 5 V 供电后，再按 `ACCEPTANCE.md` 逐项带载。

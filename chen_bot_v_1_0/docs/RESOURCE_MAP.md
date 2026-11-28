@@ -69,3 +69,12 @@
 | I²C | 0 / 4 | I2C1..4 | ≥1 组 |
 | FDCAN | 1 / 3 | FDCAN1 已用，FDCAN2/3 空闲 | 预留电机总线 |
 | GPIO 空闲 | — | PA4/PA7/PA8/PA11..PA14、PB4..PB9、PE0..PE6 等 | 4–8 个 |
+
+## 预留引脚（未启用）
+
+| 功能 | 引脚 | 说明 |
+|---|---|---|
+| 左编码器 A/B | **PB4**（TIM3_CH1）/ **PB5**（TIM3_CH2） | `CHEN_FEATURE_ENCODER=0`，仅预留 |
+| 右编码器 A/B | **PB6**（TIM4_CH1）/ **PB7**（TIM4_CH2） | 同上 |
+| 急停触点 | **PA6**（ADC1_INP3） | `CHEN_FEATURE_ESTOP_INPUT=0` |
+| 继电器 K1/K2 | **PB0** / **PA3** | 定稿清单未含继电器，保留定义 |

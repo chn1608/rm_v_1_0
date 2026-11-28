@@ -34,6 +34,7 @@ bool board_can_init(void);
 bool board_can_ready(void);
 Transport board_can_transport(void);
 uint32_t board_can_errors(void);
+bool board_can_self_test_ok(void);
 
 Transport board_ble_transport(void);
 bool board_ble_ready(void);

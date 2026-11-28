@@ -187,3 +187,19 @@ python -m unittest test_can_link test_can_e2e   ->  Ran 10 tests, OK
 python Tools/build.py host                      ->  9 组用例通过
 Keil -r MDK-ARM/chen_bot_v_1_0.uvprojx          ->  0 Error(s), 0 Warning(s)
 ```
+
+## 2026-11-28 决策与变更
+
+| 决策 | 原因 |
+|---|---|
+| 删除 USART 上位机链路，PC 链路只保留 CAN | 用户要求「完全删除 USART，恢复最初版本」 |
+| FDCAN 补消息 RAM、加 bus-off 恢复、加内部回环自检 | 零元素 FIFO 无法发送；无恢复会永久离总线；回环自检可区分固件与接线问题 |
+| 主机测试移出固件树到 `Tests/` | 用户要求固件内不得含测试程序 |
+| 接线图改为绿/黄/红三级，只用 MCU 引脚名 | 用户要求；禁用「端子.针号」写法 |
+| 上位机 GUI 单实例 | 用户要求「任何时刻只保留一个实时状态窗口」 |
+
+### 当前阻塞（等硬件）
+
+1. ST-Link 与 USB2CAN 适配器已从 USB 拔出，无法烧录/抓包；
+2. CAN 无 ACK，需用官方上位机把适配器配成 CAN2.0 + 1 Mbps；
+3. TB6612 VM 超压（红框），需补 12 V 降压后才能带载。

@@ -16,10 +16,10 @@ chen_bot_v_1_0/
 │   ├── Service/            通信协议、故障位、统一状态快照
 │   ├── Debug/              统一调试服务（权限矩阵、参数读写、诊断）
 │   ├── APP/                应用装配与 FreeRTOS 任务
-│   ├── HMI/                LCD 六页界面、字体与五向键渲染
-│   └── Test/               主机单元测试
+│   └── HMI/                LCD 六页界面、字体与五向键渲染
+├── Tests/                  主机单元测试（独立于固件，不参与编译）
 ├── MDK-ARM/                Keil 工程（目标名 CHEN_BOT）
-├── Tools/                  build.py（主机 + ARM），make_keil_project.py
+├── Tools/                  build.py、keil_project.py、wiring_diagram.py、set_stlink_debugger.py
 └── docs/                   架构、任务、协议、资源、测试、验收
 ```
 
@@ -75,3 +75,23 @@ Keil：打开 `MDK-ARM/chen_bot_v_1_0.uvprojx`，目标 `CHEN_BOT`，F7 构建�
 
 仓库已公开。第三方资料（厂商 HAL/CMSIS/FreeRTOS 源码、RM2021_Hero 参考工程）不在仓库内，
 克隆后需另行取得；其余为本项目自身的开发产物。
+
+## 当前状态（2026-11-28）
+
+| 项 | 状态 |
+|---|---|
+| 编译 | Keil 0 错误 0 警告（CAN 配置，Code 55516） |
+| LCD + 五向键 | **实物已验证可用**（判键按官方 RAW 窗口，左右方向以官方例程为准） |
+| 上位机串口 | 已完全删除（`CHEN_FEATURE_PC_DEBUG` 移除，USART1 不再初始化） |
+| 上位机 CAN | 固件侧就绪（FDCAN1、1 Mbit、0x600/0x601、消息 RAM 已配、bus-off 自动恢复、内部回环自检） |
+| PC 上位机 | `soft1/development/PC_Debug/gui.py`（tkinter，单实例）与 `monitor.py`（命令行） |
+| CAN 实机联调 | 适配器回 0x02（总线无 ACK），尚未通 |
+| 动力 | `CHEN_FEATURE_ACTUATION = 0`，未启用 |
+
+### 已知问题
+
+- **严重**：TB6612FNG 的 VM 绝对最大 15 V，4S 满电 16.8 V 超压，必须加 12 V 降压。
+- **待定**：UBEC-8A 输出档位（必须 5 V 才能接主板）、分电需自制线束。
+- **待定**：CAN 链路（适配器需 CAN2.0 + 1 Mbps）、BLE 模块、编码器、急停与独立断能。
+
+接线图与状态分级见 `docs/wiring_chen_bot_v1_0.pdf`（绿=已确认 / 黄=待定 / 红=严重）。

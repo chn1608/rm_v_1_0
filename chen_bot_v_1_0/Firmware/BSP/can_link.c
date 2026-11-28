@@ -46,6 +46,7 @@ static uint8_t rx_expect_seq;
 static uint32_t rx_errors;
 
 static bool link_ready;
+static bool self_test_ok;
 
 static void can_pins(void)
 {
@@ -65,6 +66,59 @@ static void can_clock(void)
     clock.PeriphClockSelection = RCC_PERIPHCLK_FDCAN;
     clock.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL;
     (void)HAL_RCCEx_PeriphCLKConfig(&clock);
+}
+
+/* Internal loopback self-test: proves the FDCAN core, message RAM and bit
+ * timing work without any other node on the bus. If this fails the problem is
+ * inside the MCU configuration; if it passes and the bus stays silent the
+ * problem is wiring, power or the adapter. */
+static bool can_loopback_selftest(void)
+{
+    const FDCAN_InitTypeDef saved = can.Init;
+    can.Init.Mode = FDCAN_MODE_INTERNAL_LOOPBACK;
+    if (HAL_FDCAN_Init(&can) != HAL_OK) {
+        can.Init = saved;
+        (void)HAL_FDCAN_Init(&can);
+        return false;
+    }
+
+    FDCAN_FilterTypeDef f = {0};
+    f.IdType = FDCAN_STANDARD_ID;
+    f.FilterIndex = 0u;
+    f.FilterType = FDCAN_FILTER_MASK;
+    f.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+    f.FilterID1 = 0x7FFu;
+    f.FilterID2 = 0u;
+    (void)HAL_FDCAN_ConfigFilter(&can, &f);
+
+    bool ok = false;
+    if (HAL_FDCAN_Start(&can) == HAL_OK) {
+        FDCAN_TxHeaderTypeDef tx = {0};
+        uint8_t payload[8] = {0xA5, 0x5A, 1, 2, 3, 4, 5, 6};
+        tx.Identifier = 0x7FFu;
+        tx.IdType = FDCAN_STANDARD_ID;
+        tx.TxFrameType = FDCAN_DATA_FRAME;
+        tx.DataLength = FDCAN_DLC_BYTES_8;
+        tx.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+        tx.BitRateSwitch = FDCAN_BRS_OFF;
+        tx.FDFormat = FDCAN_CLASSIC_CAN;
+        tx.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+        if (HAL_FDCAN_AddMessageToTxFifoQ(&can, &tx, payload) == HAL_OK) {
+            for (unsigned i = 0; i < 5u && !ok; ++i) {
+                HAL_Delay(2u);
+                FDCAN_RxHeaderTypeDef rx = {0};
+                uint8_t got[8] = {0};
+                if (HAL_FDCAN_GetRxMessage(&can, FDCAN_RX_FIFO0, &rx, got) == HAL_OK) {
+                    ok = (rx.Identifier == 0x7FFu) && (got[0] == 0xA5u);
+                }
+            }
+        }
+        (void)HAL_FDCAN_Stop(&can);
+    }
+
+    can.Init = saved;
+    (void)HAL_FDCAN_Init(&can);
+    return ok;
 }
 
 bool board_can_init(void)
@@ -128,6 +182,28 @@ bool board_can_init(void)
 
     HAL_NVIC_SetPriority(FDCAN1_IT0_IRQn, 7u, 0u);
     HAL_NVIC_EnableIRQ(FDCAN1_IT0_IRQn);
+
+    self_test_ok = can_loopback_selftest();
+    if (!self_test_ok) {
+        /* Loopback failed: the configuration itself is wrong, so do not pretend
+         * the link is usable. */
+        link_ready = false;
+        return false;
+    }
+
+    /* Loopback re-initialised the peripheral; restore the working filters and
+     * start the node again. */
+    if (HAL_FDCAN_Init(&can) != HAL_OK) return false;
+    if (HAL_FDCAN_ConfigFilter(&can, &filter) != HAL_OK) return false;
+    if (HAL_FDCAN_ConfigGlobalFilter(&can, FDCAN_REJECT, FDCAN_REJECT,
+                                     FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE) != HAL_OK)
+        return false;
+    if (HAL_FDCAN_Start(&can) != HAL_OK) return false;
+    if (HAL_FDCAN_ActivateNotification(&can,
+                                       FDCAN_IT_RX_FIFO0_NEW_MESSAGE | FDCAN_IT_BUS_OFF,
+                                       0u) != HAL_OK)
+        return false;
+
     link_ready = true;
     return true;
 }
@@ -274,6 +350,11 @@ uint32_t board_can_errors(void)
     return rx_errors + rx_lost + tx_fail;
 }
 
+bool board_can_self_test_ok(void)
+{
+    return self_test_ok;
+}
+
 #else  /* feature disabled */
 
 bool board_can_init(void) { return false; }
@@ -284,6 +365,7 @@ Transport board_can_transport(void)
     return none;
 }
 uint32_t board_can_errors(void) { return 0u; }
+bool board_can_self_test_ok(void) { return false; }
 void FDCAN1_IT0_IRQHandler(void) {}
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *handle, uint32_t flags)
 {
